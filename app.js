@@ -379,6 +379,7 @@ function renderAjustes(){
   <div class="settings">
     ${renderAparencia()}
     ${renderAvatarCard()}
+    ${renderIA()}
     ${renderAvisos()}
     <section class="card"><div class="head"><h2>Do seu jeito</h2><span class="sub">vale só para ${esc(S.me)}</span></div><div class="form">
       <div class="flabel">Quem está usando</div>
@@ -555,7 +556,7 @@ async function sendMsg(){
     if (S.speakOn) speak(msg.text);
   }catch(e){
     const code = e?.name==="AbortError" ? "cancelled" : e?.code;
-    const t = code==="cancelled" ? "Parei." : code==="sem_chave" ? "Falta colar a chave do Gemini no robô do Google. Veja o manual." : code==="limite" ? "Usei todo o limite grátis da IA por agora. Tente de novo mais tarde ou lance pelo botão Adicionar." : code==="invalid_json" ? "Me confundi com a resposta. Pode mandar de novo?" : code==="codigo" ? "O código da família mudou. Entre de novo." : "Não consegui responder agora. Confira a internet e tente de novo.";
+    const t = code==="cancelled" ? "Parei." : code==="sem_chave" ? "Falta a chave da IA. Cole em Ajustes → Inteligência da Fina." : code==="limite" ? "Usei todo o limite grátis da IA por agora. Tente de novo mais tarde ou lance pelo botão Adicionar." : code==="invalid_json" ? "Me confundi com a resposta. Pode mandar de novo?" : code==="codigo" ? "O código da família mudou. Entre de novo." : "Não consegui responder agora. Confira a internet e tente de novo.";
     S.chat.push({role:"assistant", text:t, items:[]});
   }finally{
     S.busy = false; S.ctl = null; S.chat = S.chat.slice(-60); saveChat(); render();
@@ -869,7 +870,7 @@ function aplicarDados(d){
   const app = d.app || {};
   S.config = {...DEFAULT_CONFIG, ...d.config, nomeAssistente: app.nomeAssistente || "Fina", regrasQuem: app.regrasQuem ?? DEFAULT_REGRAS, pessoas: app.pessoas || ["Daiana","Gustavo"], perfis: app.perfis || {}};
   S.gastos = d.gastos || []; S.parcelas = d.parcelas || []; S.entradas = d.entradas || [];
-  S.atualizado = d.atualizado || "";
+  S.atualizado = d.atualizado || ""; if (d.temIA !== undefined) S.temIA = d.temIA;
   for (const op of S.fila) aplicarLocal(op);       // o que ainda não subiu continua aparecendo
   Object.keys(S.loaded).forEach(k => S.loaded[k] = true);
 }
@@ -878,7 +879,9 @@ function guardarLocal(){
   ls.set("dados", {config, app:{perfis, nomeAssistente, regrasQuem, pessoas}, gastos:S.gastos, parcelas:S.parcelas, entradas:S.entradas, atualizado:S.atualizado});
   ls.set("fila", S.fila);
 }
+const juntar = (a, b) => { const o = {...(a||{})}; for (const k of Object.keys(b||{})) o[k] = (b[k] && typeof b[k]==="object" && !Array.isArray(b[k]) && a && a[k] && typeof a[k]==="object") ? juntar(a[k], b[k]) : b[k]; return o; };
 function aplicarLocal(op){
+  if (op.a === "app" || op.a === "config"){ S.config = juntar(S.config || DEFAULT_CONFIG, op.app || op.config); return; }
   if (op.a !== "salvar" && op.a !== "apagar") return;
   const key = {gasto:"gastos", parcela:"parcelas", entrada:"entradas"}[op.tipo];
   const id = op.a === "salvar" ? op.item.id : op.id;
@@ -915,7 +918,7 @@ async function enviar(){
     } else if (r.erro === "codigo"){ sair("O código da família mudou. Digite o novo código."); }
     else { S.erro = "A planilha recusou uma alteração. Ela continua guardada no celular."; }
   }catch{ /* sem internet: tenta de novo depois */ }
-  finally { enviando = false; renderSeguro(); if (S.fila.length && navigator.onLine) setTimeout(enviar, 4000); }
+  finally { enviando = false; renderSeguro(); if (S.fila.length && navigator.onLine) setTimeout(enviar, S.erro ? 8000 : 300); }
 }
 async function carregar(){
   if (!codigo() || !robo()) return;
@@ -966,6 +969,14 @@ function salvarAvisos(patch){
   S.config = {...cfg(), perfis:{...(cfg().perfis||{}), [S.me]:{...(cfg().perfis?.[S.me]||{}), avisos:av}}};
   enfileirar({a:"app", app:{perfis:{[S.me]:{avisos:av}}}}, "avisos:"+S.me); guardarLocal(); render(); enviar();
 }
+function renderIA(){
+  return `<section class="card"><div class="head"><h2>Inteligência da ${esc(cfg().nomeAssistente)}</h2><span class="sub">${S.temIA ? "ligada" : "falta a chave"}</span></div><div class="form">
+    ${S.temIA ? `<p class="sub">A IA está ligada (Gemini, grátis). A chave fica guardada no Google, não neste aparelho.</p>` :
+      `<p class="sub">Para eu ler prints e entender o que você fala, cole aqui uma chave grátis do Gemini. Pode ser a mesma do Daia Studio, ou crie uma em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (toque em “Criar chave de API” e copie).</p>`}
+    <input id="chaveIA" type="password" autocomplete="off" placeholder="${S.temIA ? "trocar a chave" : "cole a chave aqui"}" aria-label="Chave do Gemini">
+    <div class="toolbar"><button class="btn" data-act="salvarChave">Salvar chave</button>${S.temIA?`<button class="btn ghost" data-act="apagarChave">Apagar chave</button>`:""}</div>
+  </div></section>`;
+}
 function renderAvisos(){
   const av = meusAvisos();
   const linha = (k, t, d) => `<label class="checks" style="grid-template-columns:1fr"><label><input type="checkbox" data-aviso="${k}" ${av[k]!==false?"checked":""} ${av.ativo?"":"disabled"}> <span><b>${t}</b><br><span class="sub">${d}</span></span></label></label>`;
@@ -989,6 +1000,13 @@ document.addEventListener("click", async ev => {
   if (a === "entrar") return entrar();
   if (a === "recarregar"){ S.erro = ""; render(); return carregar(); }
   if (a === "sair") return sair("");
+  if (a === "salvarChave" || a === "apagarChave"){
+    const k = a === "apagarChave" ? "__apagar__" : ($("#chaveIA")?.value || "").trim();
+    if (!k) return toast("Cole a chave primeiro.");
+    if (!navigator.onLine) return toast("Precisa de internet para guardar a chave.");
+    try{ const r = await api({a:"chave", chave:k}); if (r.ok){ S.temIA = r.temIA; render(); toast(r.temIA ? "IA ligada" : "Chave apagada"); } else toast("Não consegui guardar a chave."); }catch{ toast("Não consegui guardar a chave."); }
+    return;
+  }
   if (a === "copiarTopico"){ try{ await navigator.clipboard.writeText(meusAvisos().topico); toast("Tópico copiado"); }catch{ toast("Segure o texto para copiar"); } return; }
   if (a === "testarAviso"){
     const av = meusAvisos();

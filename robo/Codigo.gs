@@ -5,7 +5,7 @@
 //
 // Propriedades do script (Configurações do projeto > Propriedades do script):
 //   CODIGO_FAMILIA  código que o app pede na primeira vez em cada aparelho
-//   GEMINI_KEY      chave grátis do Gemini (a mesma do Daia Studio serve)
+//   GEMINI_KEY      chave grátis do Gemini — a Daiana cola pelo app (Ajustes > IA)
 // Depois de colar: rode a função "configurar" uma vez e Implante como app da web.
 // =====================================================================
 const TZ = 'America/Sao_Paulo';
@@ -102,7 +102,7 @@ function gravarApp_(patch) {
   return novo;
 }
 function dados_() {
-  return {ok: true, config: lerConfig_(), app: lerApp_(), gastos: lerGastos_(), parcelas: lerParcelas_(), entradas: lerEntradas_(),
+  return {ok: true, temIA: !!props_().getProperty('GEMINI_KEY'), config: lerConfig_(), app: lerApp_(), gastos: lerGastos_(), parcelas: lerParcelas_(), entradas: lerEntradas_(),
           atualizado: new Date().toISOString()};
 }
 
@@ -223,6 +223,11 @@ function doPost(e) {
   if (!confere_(q.c)) return json_({ok: false, erro: 'codigo'});
   if (q.a === 'ia') return json_(ia_(q.prompt, q.imagens));
   if (q.a === 'foto') return json_(Object.assign({ok: true}, salvarFoto_(q.base64, q.mime, q.nome)));
+  if (q.a === 'chave') {                 // a Daiana cola a chave do Gemini pelo app (fica só no Google)
+    const k = String(q.chave || '').trim();
+    if (k === '__apagar__') props_().deleteProperty('GEMINI_KEY'); else if (k) { props_().setProperty('GEMINI_KEY', k); props_().deleteProperty('GEMINI_MODELO'); }
+    return json_({ok: true, temIA: !!props_().getProperty('GEMINI_KEY')});
+  }
   const lock = LockService.getScriptLock(); lock.waitLock(25000);
   try {
     if (q.a === 'lote') {

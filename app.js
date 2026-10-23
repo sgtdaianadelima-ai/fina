@@ -76,6 +76,18 @@ const DEFAULT_CONFIG = {
   regrasQuem: "",
 };
 const cfg = () => ({...DEFAULT_CONFIG, ...(S.config||{})});
+/* de quais entradas sai cada porcentagem (dízimo, reserva, investimentos); sem escolha = todas */
+const METAS = [["dizimo","Dízimo / doação"],["reserva","Reserva de emergência"],["investimentos","Investimentos"]];
+const fonteKey = e => `${e.quem||"Casal"}|${e.tipo||"Outros"}`;
+const fonteNome = k => { const [q,t] = k.split("|"); return `${t} · ${q}`; };
+function fontes(){
+  const set = new Set();
+  cfg().pessoas.forEach(p => ["Salário","Renda extra"].forEach(t => set.add(`${p}|${t}`)));
+  S.entradas.forEach(e => set.add(fonteKey(e)));
+  const ord = k => { const [q,t] = k.split("|"); const i = ENTRY_TYPES.indexOf(t); return [i<0?99:i, q]; };
+  return [...set].sort((a,b)=>{ const [ia,qa] = ord(a), [ib,qb] = ord(b); return ia-ib || qa.localeCompare(qb); });
+}
+const baseEscolhida = k => { const b = cfg().bases?.[k]; return Array.isArray(b) ? b : null; };
 const formas = () => [...cfg().cartoes.map(c=>c.nome), ...PAY_FIXED];
 const catNames = () => cfg().categorias.map(c=>c.nome);
 const catColor = n => CAT_COLORS[Math.max(0,catNames().indexOf(n)) % CAT_COLORS.length];
@@ -100,7 +112,9 @@ function month(ym){
   const parcelas = S.parcelas.filter(p => parcelaInfo(p, ym));
   const entradas = S.entradas.filter(e => e.mes === ym);
   const entrou = entradas.reduce((s,e)=>s+num(e.valor),0);
-  const sep = {dizimo: entrou*num(c.metas.dizimo), reserva: entrou*num(c.metas.reserva), investimentos: entrou*num(c.metas.investimentos)};
+  const base = {};
+  for (const [k] of METAS){ const b = baseEscolhida(k); base[k] = b ? entradas.filter(e => b.includes(fonteKey(e))).reduce((s,e)=>s+num(e.valor),0) : entrou; }
+  const sep = {dizimo: base.dizimo*num(c.metas.dizimo), reserva: base.reserva*num(c.metas.reserva), investimentos: base.investimentos*num(c.metas.investimentos)};
   const separado = sep.dizimo+sep.reserva+sep.investimentos;
   const fixas = c.fixas.reduce((s,f)=>s+num(f.valor),0);
   const dia = gastos.reduce((s,g)=>s+num(g.valor),0);
@@ -113,7 +127,7 @@ function month(ym){
   });
   const pessoas = {};
   for (const e of entradas) pessoas[e.quem||"Casal"] = (pessoas[e.quem||"Casal"]||0) + num(e.valor);
-  return {gastos, parcelas, entradas, entrou, sep, separado, fixas, dia, parc, ainda, cats, pessoas};
+  return {gastos, parcelas, entradas, entrou, base, sep, separado, fixas, dia, parc, ainda, cats, pessoas};
 }
 
 
@@ -290,9 +304,9 @@ function renderInicio(){
     <div class="wrap" style="gap:16px">
       ${on("separado")?`<section class="card"><div class="head"><h2>Separado antes de gastar</h2></div>
         <div class="split num">
-          <div class="line"><span>Dízimo / doação · ${Math.round(num(c.metas.dizimo)*100)}%</span><b>${money0(M.sep.dizimo)}</b></div>
-          <div class="line"><span>Reserva de emergência · ${Math.round(num(c.metas.reserva)*100)}%</span><b>${money0(M.sep.reserva)}</b></div>
-          <div class="line"><span>Investimentos · ${Math.round(num(c.metas.investimentos)*100)}%</span><b>${money0(M.sep.investimentos)}</b></div>
+          <div class="line"><span>Dízimo / doação · ${Math.round(num(c.metas.dizimo)*100)}%${baseEscolhida("dizimo") ? ` <small class="muted">de ${money0(M.base.dizimo)}</small>` : ""}</span><b>${money0(M.sep.dizimo)}</b></div>
+          <div class="line"><span>Reserva de emergência · ${Math.round(num(c.metas.reserva)*100)}%${baseEscolhida("reserva") ? ` <small class="muted">de ${money0(M.base.reserva)}</small>` : ""}</span><b>${money0(M.sep.reserva)}</b></div>
+          <div class="line"><span>Investimentos · ${Math.round(num(c.metas.investimentos)*100)}%${baseEscolhida("investimentos") ? ` <small class="muted">de ${money0(M.base.investimentos)}</small>` : ""}</span><b>${money0(M.sep.investimentos)}</b></div>
         </div></section>`:""}
       ${on("reserva")?`<section class="card"><div class="head"><h2>Reserva de emergência</h2><span class="sub">meta de ${esc(c.reserva.meses)} meses</span></div>
         <div class="split num"><div class="line"><span>${saldoRes ? "Guardado" : "Saldo ainda não informado"}</span><b>${saldoRes?money0(saldoRes):"—"} / ${money0(metaReserva)}</b></div>
@@ -355,10 +369,14 @@ function renderMetas(){
     <div class="chips" style="margin-top:8px"><span class="chip"><i style="width:10px;height:10px;border-radius:3px;background:var(--ink-3)"></i>Contas fixas</span><span class="chip"><i style="width:10px;height:10px;border-radius:3px;background:var(--gold)"></i>Parcelas</span><span class="chip"><i style="width:10px;height:10px;border-radius:3px;background:var(--accent)"></i>Dia a dia</span><span class="chip"><i style="width:10px;height:10px;border-radius:3px;background:var(--line)"></i>Separado</span></div>
   </section>
   <div class="settings">
-    <section class="card"><div class="head"><h2>Quanto separar de cada entrada</h2></div>
+    <section class="card"><div class="head"><h2>Quanto separar e de onde</h2></div>
       <div class="form">
-        ${[["dizimo","Dízimo / doação"],["reserva","Reserva de emergência"],["investimentos","Investimentos"]].map(([k,t])=>`<label class="frow" style="grid-template-columns:minmax(0,1fr) minmax(0,96px)"><span>${t}</span><input id="meta-${k}" type="number" step="1" min="0" max="100" value="${Math.round(num(c.metas[k])*100)}" aria-label="${t} em %"></label>`).join("")}
-        <p class="sub">Em ${esc(mLabel(S.mes))}: ${money(M.separado)} separados de ${money(M.entrou)}.</p>
+        <p class="sub">Escolha a porcentagem e marque sobre quais entradas ela vale.</p>
+        ${METAS.map(([k,t])=>{ const b = baseEscolhida(k); return `<div class="meta-bloco">
+          <label class="frow" style="grid-template-columns:minmax(0,1fr) minmax(0,96px)"><span><b>${t}</b></span><input id="meta-${k}" type="number" step="1" min="0" max="100" value="${Math.round(num(c.metas[k])*100)}" aria-label="${t} em %"></label>
+          <div class="fontes" role="group" aria-label="${t}: sobre quais entradas">${fontes().map(f=>`<label class="fonte"><input type="checkbox" data-base="${k}" value="${esc(f)}" ${!b || b.includes(f) ? "checked" : ""}><span>${esc(fonteNome(f))}</span></label>`).join("")}</div>
+          <p class="sub num">${Math.round(num(c.metas[k])*100)}% de ${money0(M.base[k])} = <b>${money0(M.sep[k])}</b> em ${esc(mLabel(S.mes).split(" ")[0])}</p></div>`; }).join("")}
+        <p class="sub">Total separado em ${esc(mLabel(S.mes))}: <b>${money(M.separado)}</b> (entrou ${money(M.entrou)}).</p>
         <button class="btn" data-save="metas">Salvar porcentagens</button>
       </div></section>
     <section class="card"><div class="head"><h2>Reserva de emergência</h2></div>
@@ -788,7 +806,11 @@ document.addEventListener("click", async ev => {
   if (d.delCard!=null){ const c = cfg(); S.config = {...c, cartoes:c.cartoes.filter((_,i)=>i!=d.delCard)}; return render(); }
   if (d.save){
     const c = cfg();
-    if (d.save==="metas") return saveConfig({metas:{dizimo:num($("#meta-dizimo").value)/100, reserva:num($("#meta-reserva").value)/100, investimentos:num($("#meta-investimentos").value)/100}});
+    if (d.save==="metas"){
+      const todas = fontes(), bases = {};
+      for (const [k] of METAS){ const marc = [...document.querySelectorAll(`[data-base="${k}"]:checked`)].map(x=>x.value); bases[k] = marc.length === todas.length ? null : marc; }
+      return saveConfig({metas:{dizimo:num($("#meta-dizimo").value)/100, reserva:num($("#meta-reserva").value)/100, investimentos:num($("#meta-investimentos").value)/100}, bases});
+    }
     if (d.save==="reserva") return saveConfig({reserva:{saldo:num($("#res-saldo").value), meses:Number($("#res-meses").value)||6, atualizado:today()}});
     if (d.save==="assistente") return saveConfig({nomeAssistente:$("#nomeA").value.trim()||"Fina", regrasQuem:$("#regras").value});
     if (d.save==="cats") return saveConfig({categorias: collectRows("cat-n","cat-v").map(([n,v])=>({nome:n, orcamento:v}))});
@@ -868,15 +890,15 @@ function imgBase64(file, max, q){
 
 function aplicarDados(d){
   const app = d.app || {};
-  S.config = {...DEFAULT_CONFIG, ...d.config, nomeAssistente: app.nomeAssistente || "Fina", regrasQuem: app.regrasQuem ?? DEFAULT_REGRAS, pessoas: app.pessoas || ["Daiana","Gustavo"], perfis: app.perfis || {}};
+  S.config = {...DEFAULT_CONFIG, ...d.config, nomeAssistente: app.nomeAssistente || "Fina", regrasQuem: app.regrasQuem ?? DEFAULT_REGRAS, pessoas: app.pessoas || ["Daiana","Gustavo"], perfis: app.perfis || {}, bases: app.bases || {}};
   S.gastos = d.gastos || []; S.parcelas = d.parcelas || []; S.entradas = d.entradas || [];
   S.atualizado = d.atualizado || ""; if (d.temIA !== undefined) S.temIA = d.temIA;
   for (const op of S.fila) aplicarLocal(op);       // o que ainda não subiu continua aparecendo
   Object.keys(S.loaded).forEach(k => S.loaded[k] = true);
 }
 function guardarLocal(){
-  const {perfis, nomeAssistente, regrasQuem, pessoas, ...config} = cfg();
-  ls.set("dados", {config, app:{perfis, nomeAssistente, regrasQuem, pessoas}, gastos:S.gastos, parcelas:S.parcelas, entradas:S.entradas, atualizado:S.atualizado});
+  const {perfis, nomeAssistente, regrasQuem, pessoas, bases, ...config} = cfg();
+  ls.set("dados", {config, app:{perfis, nomeAssistente, regrasQuem, pessoas, bases}, gastos:S.gastos, parcelas:S.parcelas, entradas:S.entradas, atualizado:S.atualizado});
   ls.set("fila", S.fila);
 }
 const juntar = (a, b) => { const o = {...(a||{})}; for (const k of Object.keys(b||{})) o[k] = (b[k] && typeof b[k]==="object" && !Array.isArray(b[k]) && a && a[k] && typeof a[k]==="object") ? juntar(a[k], b[k]) : b[k]; return o; };

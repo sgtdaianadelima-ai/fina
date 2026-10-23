@@ -282,7 +282,9 @@ function resumoMes_(D, ym) {
   const gastos = D.gastos.filter(g => mesQueConta_(g, D.config.cartoes) === ym);
   const parc = D.parcelas.filter(p => { const k = dif(p.inicio, ym); return k >= 0 && k < p.n; });
   const entrou = D.entradas.filter(x => x.mes === ym).reduce((s, x) => s + x.valor, 0);
-  const m = D.config.metas; const sep = entrou * (m.dizimo + m.reserva + m.investimentos);
+  const m = D.config.metas; const bases = (D.app && D.app.bases) || {};
+  const base = k => Array.isArray(bases[k]) ? D.entradas.filter(x => x.mes === ym && bases[k].indexOf((x.quem || 'Casal') + '|' + (x.tipo || 'Outros')) >= 0).reduce((s, x) => s + x.valor, 0) : entrou;
+  const sep = base('dizimo') * m.dizimo + base('reserva') * m.reserva + base('investimentos') * m.investimentos;
   const fixas = D.config.fixas.reduce((s, x) => s + x.valor, 0);
   const dia = gastos.reduce((s, x) => s + x.valor, 0), pa = parc.reduce((s, x) => s + x.valor, 0);
   const cats = D.config.categorias.map(k => ({nome: k.nome, orc: k.orcamento,

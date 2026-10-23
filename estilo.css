@@ -93,12 +93,12 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 .hero .legend{display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--ink-2);gap:8px;flex-wrap:wrap}
 .coin{position:absolute;right:18px;top:16px;width:46px;height:46px;opacity:.5}
 
-.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .stat{background:var(--surface);border:var(--card-border);box-shadow:var(--card-shadow);border-radius:var(--r-md);padding:14px;min-width:0}
 .stat small{display:block;color:var(--ink-3);font-weight:600;font-size:12px}
 .stat b{display:block;font-family:var(--f-display);font-size:22px;margin-top:4px}
 .stat span{font-size:12px;color:var(--ink-2)}
-@media (max-width:560px){.stats{grid-template-columns:1fr 1fr}.stats .stat:last-child{grid-column:1/-1}}
+@media (max-width:860px){.stats{grid-template-columns:1fr 1fr}}
 
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;background:var(--surface-2);color:var(--ink-2);border:0}

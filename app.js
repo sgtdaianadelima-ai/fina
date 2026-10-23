@@ -294,6 +294,7 @@ function renderInicio(){
     <div class="legend num"><span>${Math.round(usado*100)}% da renda já comprometida</span><span>entrou ${money0(M.entrou)}</span></div>
   </section>
   ${on("stats")?`<div class="stats">
+    <div class="stat"><small>Entrou no mês</small><b class="num">${money0(M.entrou)}</b><span>${money0(M.entradas.filter(e=>e.tipo==="Salário").reduce((s,e)=>s+num(e.valor),0))} de salário · ${money0(M.entradas.filter(e=>e.tipo!=="Salário").reduce((s,e)=>s+num(e.valor),0))} de vales e extras</span></div>
     <div class="stat"><small>Separado primeiro</small><b class="num">${money0(M.separado)}</b><span>dízimo, reserva e investimentos</span></div>
     <div class="stat"><small>Contas fixas</small><b class="num">${money0(M.fixas)}</b><span>${c.fixas.length} contas do mês</span></div>
     <div class="stat"><small>Gasto no mês</small><b class="num">${money0(M.dia+M.parc)}</b><span>${money0(M.dia)} no dia a dia · ${money0(M.parc)} em parcelas</span></div>
@@ -573,30 +574,42 @@ async function chaveIA(){
   try{ const r = await api({a:"chaveIA"}); if (r.ok && r.chave){ ls.set("gkey", r.chave); return r.chave; } }catch{}
   return "";
 }
-async function modeloIA(key){
-  const salvo = ls.get("gmodel", ""); if (salvo) return salvo;
+/* escolhe sozinha o modelo "flash" mais novo que a chave pode usar; se o Google aposentar um, passa para o próximo */
+async function modelosIA(key){
+  const salvo = ls.get("gmodelos", null); if (salvo && salvo.t > Date.now() - 864e5 && salvo.lista?.length) return salvo.lista;
   let nomes = [];
   try{ const j = await (await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", {headers:{"x-goog-api-key":key}})).json();
     nomes = (j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")).map(m=>m.name.replace("models/","")); }catch{}
-  const m = nomes.includes("gemini-2.5-flash") ? "gemini-2.5-flash" : (nomes.find(n=>/flash/.test(n) && !/lite|image|tts|live|audio|exp|embed|8b/.test(n)) || "gemini-2.5-flash");
-  ls.set("gmodel", m); return m;
+  const versao = n => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+  const bons = nomes.filter(n => /flash/.test(n) && !/image|tts|live|audio|embed|8b|thinking|exp/.test(n));
+  bons.sort((a,b) => (versao(b)-versao(a)) || (/lite/.test(a)-/lite/.test(b)) || (/preview/.test(a)-/preview/.test(b)) || (/latest/.test(b)-/latest/.test(a)));
+  const lista = bons.length ? bons : ["gemini-flash-latest"];
+  ls.set("gmodelos", {t: Date.now(), lista});
+  return lista;
 }
 async function perguntarIA(prompt, anexos, signal){
   const key = await chaveIA();
   if (!key){ const r = await api({a:"ia", prompt, imagens: anexos}, signal); if (!r.ok) throw {code:r.erro}; return r.texto; }
-  const modelo = await modeloIA(key);
-  const body = {contents:[{role:"user", parts:[{text:prompt}, ...anexos.map(a=>({inline_data:{mime_type:a.mime, data:a.data}}))]}],
-    generationConfig:{temperature:.2, responseMimeType:"application/json", ...(/2\.5/.test(modelo) ? {thinkingConfig:{thinkingBudget:1024}} : {})}};
-  for (let tent = 0; tent < 3; tent++){
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {method:"POST", headers:{"Content-Type":"application/json", "x-goog-api-key":key}, body:JSON.stringify(body), signal});
-    if (r.ok){ const j = await r.json(); return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("").trim(); }
-    const t = await r.text().catch(()=>"");
-    if (r.status === 404){ ls.set("gmodel", ""); }
-    if ((r.status === 400 && /api.?key/i.test(t)) || r.status === 401 || r.status === 403){ ls.set("gkey", ""); throw {code:"chave_ruim"}; }
-    if (r.status === 429) throw {code:"limite"};
-    if (r.status >= 500 && tent < 2){ await new Promise(ok=>setTimeout(ok, 2500*(tent+1))); continue; }
-    throw {code:"ia_"+r.status, detalhe:t.replace(/\s+/g," ").slice(0,160)};
+  const ruins = new Set(ls.get("gruins", []));
+  const modelos = (await modelosIA(key)).filter(m => !ruins.has(m));
+  if (!modelos.length){ ls.set("gruins", []); ls.set("gmodelos", null); throw {code:"ia_sem_modelo"}; }
+  let ultimo = null;
+  for (const modelo of modelos.slice(0, 4)){
+    const body = {contents:[{role:"user", parts:[{text:prompt}, ...anexos.map(a=>({inline_data:{mime_type:a.mime, data:a.data}}))]}],
+      generationConfig:{temperature:.2, responseMimeType:"application/json"}};
+    for (let tent = 0; tent < 2; tent++){
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {method:"POST", headers:{"Content-Type":"application/json", "x-goog-api-key":key}, body:JSON.stringify(body), signal});
+      if (r.ok){ const j = await r.json(); return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("").trim(); }
+      const t = await r.text().catch(()=>"");
+      if ((r.status === 400 && /api.?key/i.test(t)) || r.status === 401 || (r.status === 403 && /api.?key|permission/i.test(t))){ ls.set("gkey", ""); throw {code:"chave_ruim"}; }
+      ultimo = {code:"ia_"+r.status, detalhe:t.replace(/\s+/g," ").slice(0,160)};
+      if (r.status === 404 || r.status === 400){ ruins.add(modelo); ls.set("gruins", [...ruins]); break; }   // modelo aposentado: tenta o próximo
+      if (r.status === 429){ ultimo = {code:"limite"}; break; }                                              // limite deste modelo: tenta o próximo
+      if (r.status >= 500 && tent === 0){ await new Promise(ok=>setTimeout(ok, 2000)); continue; }          // Google ocupado: espera e tenta
+      break;
+    }
   }
+  throw ultimo || {code:"ia_erro"};
 }
 function lerBase64(file){ return new Promise((ok, erro) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1]); fr.onerror = () => erro(fr.error); fr.readAsDataURL(file); }); }
 async function anexosDe(files){
@@ -666,7 +679,7 @@ async function rodarIA(text, anexos, prompt, files, daFila){
       if (!daFila){ const ok = guardarParaDepois({text, anexos, prompt, quando: Date.now()}); S.chat.push({role:"assistant", text: ok ? "A conexão falhou no meio. Guardei e tento de novo sozinha daqui a pouco." : "A conexão falhou e o arquivo é grande demais para guardar. Mande de novo, por favor.", items:[]}); }
       setTimeout(processarFilaIA, 30000);
     } else {
-      const t = code==="cancelled" ? "Parei." : code==="sem_chave" ? "Falta a chave da IA. Cole em Ajustes → Fina → Inteligência da Fina." : code==="chave_ruim" ? "A chave da IA não funcionou. Cole de novo em Ajustes → Fina → Inteligência da Fina." : code==="limite" ? "Usei todo o limite grátis da IA por agora. Tente de novo daqui a pouco ou lance pelo botão Adicionar." : code==="invalid_json" ? "Me confundi com a resposta. Pode mandar de novo?" : code==="codigo" ? "O código da família mudou. Entre de novo." : `Não consegui ler agora (${code||"erro"}${e?.detalhe ? ": "+e.detalhe : ""}). Tente de novo.`;
+      const t = code==="cancelled" ? "Parei." : code==="sem_chave" ? "Falta a chave da IA. Cole em Ajustes → Fina → Inteligência da Fina." : code==="chave_ruim" ? "A chave da IA não funcionou. Cole de novo em Ajustes → Fina → Inteligência da Fina." : code==="limite" ? "Usei todo o limite grátis da IA por agora. Tente de novo daqui a pouco ou lance pelo botão Adicionar." : /^ia_5\d\d$/.test(code||"") ? "A IA do Google está sobrecarregada agora. Tente de novo em um minutinho." : code==="invalid_json" ? "Me confundi com a resposta. Pode mandar de novo?" : code==="codigo" ? "O código da família mudou. Entre de novo." : `Não consegui ler agora (${code||"erro"}${e?.detalhe ? ": "+e.detalhe : ""}). Tente de novo.`;
       S.chat.push({role:"assistant", text:t, items:[]});
     }
   }finally{
@@ -1123,7 +1136,7 @@ document.addEventListener("click", async ev => {
     const k = a === "apagarChave" ? "__apagar__" : ($("#chaveIA")?.value || "").trim();
     if (!k) return toast("Cole a chave primeiro.");
     if (!navigator.onLine) return toast("Precisa de internet para guardar a chave.");
-    ls.set("gkey", k === "__apagar__" ? "" : k); ls.set("gmodel", "");
+    ls.set("gkey", k === "__apagar__" ? "" : k); ls.set("gmodelos", null); ls.set("gruins", []);
     try{ const r = await api({a:"chave", chave:k}); if (r.ok){ S.temIA = r.temIA; render(); toast(r.temIA ? "IA ligada" : "Chave apagada"); } else toast("Não consegui guardar a chave."); }catch{ toast("Não consegui guardar a chave."); }
     return;
   }

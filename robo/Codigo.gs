@@ -3,10 +3,11 @@
 // Fica na planilha FAMÍLIA ASSIS (Extensões > Apps Script).
 // O app (https://sgtdaianadelima-ai.github.io/fina/) conversa com este robô.
 //
-// Propriedades do script (Configurações do projeto > Propriedades do script):
-//   CODIGO_FAMILIA  código que o app pede na primeira vez em cada aparelho
+// Para ligar: cole este arquivo e faça Implantar > Nova implantação > App da Web
+// (Executar como: Eu · Quem pode acessar: Qualquer pessoa). Só isso.
+// O resto se arruma sozinho no primeiro acesso:
+//   CODIGO_FAMILIA  o primeiro código digitado no app vira o código da família
 //   GEMINI_KEY      chave grátis do Gemini — a Daiana cola pelo app (Ajustes > IA)
-// Depois de colar: rode a função "configurar" uma vez e Implante como app da web.
 // =====================================================================
 const TZ = 'America/Sao_Paulo';
 const APP_URL = 'https://sgtdaianadelima-ai.github.io/fina/';
@@ -210,7 +211,17 @@ function ia_(prompt, imagens) {
 }
 
 // ---------- entrada do app ----------
-function confere_(c) { const ok = props_().getProperty('CODIGO_FAMILIA'); return ok && String(c || '').trim().toLowerCase() === ok.trim().toLowerCase(); }
+function confere_(c) {
+  const p = props_(); const dado = String(c || '').trim().toLowerCase();
+  let ok = p.getProperty('CODIGO_FAMILIA');
+  if (!ok && dado.length >= 8) {        // primeiro acesso: o código digitado vira o da família
+    const lock = LockService.getScriptLock(); lock.waitLock(25000);
+    try { ok = p.getProperty('CODIGO_FAMILIA'); if (!ok) { p.setProperty('CODIGO_FAMILIA', dado); ok = dado; } } finally { lock.releaseLock(); }
+  }
+  if (!ok || dado !== ok.trim().toLowerCase()) return false;
+  if (!p.getProperty('PRONTO')) { try { configurar(); p.setProperty('PRONTO', '1'); } catch (err) { console.error(err); } }
+  return true;
+}
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.a === 'ping') return json_({ok: true, fina: true});
@@ -303,10 +314,8 @@ function avisosDiarios() {
   });
 }
 
-// ---------- rode uma vez ----------
+// ---------- roda sozinho no primeiro acesso (pode rodar à mão também) ----------
 function configurar() {
-  const p = props_();
-  if (!p.getProperty('CODIGO_FAMILIA')) throw new Error('Cole o CODIGO_FAMILIA nas Propriedades do script antes.');
   pasta_();
   if (!aba_('App')) { const sh = ss_().insertSheet('App'); sh.getRange('A1').setValue('{}'); sh.hideSheet(); }
   aba_('Lançamentos').getRange('H1:K1').setValues([['ID', 'Comprovante', 'Criado por', 'Criado em']]);

@@ -838,7 +838,7 @@ window.speechSynthesis?.addEventListener?.("voiceschanged", ()=>{ if (S.tab==="a
 
 /* ---------- conexão com a planilha (robô do Google) ---------- */
 const ROBO_PADRAO = "https://script.google.com/macros/s/AKfycbzlNt_xj72w9OvKCv08VA1o1IrZqC2HsZHKPAnmvZPmR8w-R-LeATtbKdRzk8laqeCL/exec";   // endereço do robô (Implantar > App da Web), preenchido depois da implantação
-const robo = () => ls.get("robo", "") || ROBO_PADRAO;
+const robo = () => ROBO_PADRAO || ls.get("robo", "");   // o endereço oficial sempre vence o que foi digitado antes
 const codigo = () => ls.get("codigo", "");
 let enviando = false;
 

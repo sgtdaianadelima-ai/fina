@@ -923,10 +923,11 @@ async function enviar(){
 async function carregar(){
   if (!codigo() || !robo()) return;
   try{
-    const r = await (await fetch(robo() + "?c=" + encodeURIComponent(codigo()))).json();
+    const t = await (await fetch(robo() + "?c=" + encodeURIComponent(codigo()))).text();
+    let r; try{ r = JSON.parse(t); }catch{ S.erro = "O robô deu erro: " + (t.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,160) || "resposta vazia"); applyTheme(); renderSeguro(); return; }
     if (r.ok){ aplicarDados(r); guardarLocal(); S.erro = ""; }
     else if (r.erro === "codigo") return sair("Esse código não abriu a planilha. Confira e tente de novo.");
-    else S.erro = "A planilha não respondeu direito agora.";
+    else S.erro = "A planilha não respondeu direito agora" + (r.erro ? " (" + r.erro + ")" : "") + ".";
   }catch{ if (!S.config) S.erro = navigator.onLine ? "Não consegui falar com a planilha. O robô precisa estar publicado com “Quem pode acessar: Qualquer pessoa”." : "Sem internet e ainda sem dados guardados neste aparelho."; }
   applyTheme(); renderSeguro();
   enviar();

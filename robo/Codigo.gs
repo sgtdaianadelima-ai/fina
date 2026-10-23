@@ -88,7 +88,9 @@ function lerConfig_() {
   const m = sh.getRange('O3:O5').getValues().map(r => num_(r[0]));
   const pct = v => v > 1 ? v / 100 : v;
   const res = sh.getRange('O8:O10').getValues();
-  return {categorias, fixas, cartoes,
+  const marca = v => v === true || String(v).toUpperCase() === 'TRUE';
+  const fontes = lerLista_(sh, 'R3:V40', r => ({quem: String(r[0]), tipo: String(r[1]), dizimo: marca(r[2]), reserva: marca(r[3]), investimentos: marca(r[4])}));
+  return {categorias, fixas, cartoes, fontes,
     metas: {dizimo: pct(m[0]), reserva: pct(m[1]), investimentos: pct(m[2])},
     reserva: {saldo: num_(res[0][0]), meses: Number(res[1][0]) || 6, atualizado: textoData_(res[2][0])}};
 }
@@ -161,6 +163,10 @@ function gravarConfig_(c) {
   if (c.cartoes) {
     escreve('N14', c.cartoes.map(k => [k.nome, k.fecha || '', k.vence || '']), 3, 27);
     escreve('J3', c.cartoes.map(k => [k.nome]).concat(FORMAS_FIXAS.map(f => [f])), 1, 18);
+  }
+  if (c.fontes) {                       // de onde sai cada % (Config R:V, com caixinhas)
+    escreve('R3', c.fontes.map(f => [f.quem || '', f.tipo || '', f.dizimo !== false, f.reserva !== false, f.investimentos !== false]), 5, 38);
+    sh.getRange('T3:V40').setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
   }
   if (c.metas) sh.getRange('O3:O5').setValues([[c.metas.dizimo], [c.metas.reserva], [c.metas.investimentos]]);
   if (c.reserva) sh.getRange('O8:O10').setValues([[num_(c.reserva.saldo)], [Number(c.reserva.meses) || 6], [paraData_(c.reserva.atualizado) || '']]);
@@ -282,8 +288,9 @@ function resumoMes_(D, ym) {
   const gastos = D.gastos.filter(g => mesQueConta_(g, D.config.cartoes) === ym);
   const parc = D.parcelas.filter(p => { const k = dif(p.inicio, ym); return k >= 0 && k < p.n; });
   const entrou = D.entradas.filter(x => x.mes === ym).reduce((s, x) => s + x.valor, 0);
-  const m = D.config.metas; const bases = (D.app && D.app.bases) || {};
-  const base = k => Array.isArray(bases[k]) ? D.entradas.filter(x => x.mes === ym && bases[k].indexOf((x.quem || 'Casal') + '|' + (x.tipo || 'Outros')) >= 0).reduce((s, x) => s + x.valor, 0) : entrou;
+  const m = D.config.metas; const fontes = D.config.fontes || [];
+  const conta = (k, x) => { const f = fontes.find(f => f.quem === (x.quem || 'Casal') && f.tipo === (x.tipo || 'Outros')); return f ? f[k] !== false : true; };
+  const base = k => D.entradas.filter(x => x.mes === ym && conta(k, x)).reduce((s, x) => s + x.valor, 0);
   const sep = base('dizimo') * m.dizimo + base('reserva') * m.reserva + base('investimentos') * m.investimentos;
   const fixas = D.config.fixas.reduce((s, x) => s + x.valor, 0);
   const dia = gastos.reduce((s, x) => s + x.valor, 0), pa = parc.reduce((s, x) => s + x.valor, 0);

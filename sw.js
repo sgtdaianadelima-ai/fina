@@ -1,5 +1,5 @@
 // Guarda o app no celular para abrir sem internet. Toda mudança: aumentar VERSAO.
-const VERSAO = "fina-v8";
+const VERSAO = "fina-v9";
 const ARQUIVOS = ["./", "index.html", "estilo.css", "app.js", "manifest.webmanifest", "icone-192.png", "icone-512.png", "manual.html"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(VERSAO).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSAO).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

@@ -70,24 +70,32 @@ const DEFAULT_REGRAS = "Nubank e Inter: Gustavo. Santander: Daiana. Itaú e Port
 const DEFAULT_CONFIG = {
   nomeAssistente: "Fina",
   pessoas: ["Daiana","Gustavo"],
-  categorias: [], fixas: [], cartoes: [],
+  categorias: [], fixas: [], cartoes: [], fontes: [],
   metas: {dizimo:.10, reserva:.03, investimentos:.02},
   reserva: {saldo:0, meses:6, atualizado:""},
   regrasQuem: "",
 };
 const cfg = () => ({...DEFAULT_CONFIG, ...(S.config||{})});
-/* de quais entradas sai cada porcentagem (dízimo, reserva, investimentos); sem escolha = todas */
+/* de quais entradas sai cada porcentagem (dízimo, reserva, investimentos).
+   Fica na planilha (Config, colunas R a V, com caixinhas). Entrada que não está na tabela conta em tudo. */
 const METAS = [["dizimo","Dízimo / doação"],["reserva","Reserva de emergência"],["investimentos","Investimentos"]];
 const fonteKey = e => `${e.quem||"Casal"}|${e.tipo||"Outros"}`;
 const fonteNome = k => { const [q,t] = k.split("|"); return `${t} · ${q}`; };
 function fontes(){
   const set = new Set();
   cfg().pessoas.forEach(p => ["Salário","Renda extra"].forEach(t => set.add(`${p}|${t}`)));
+  (cfg().fontes||[]).forEach(f => set.add(`${f.quem}|${f.tipo}`));
   S.entradas.forEach(e => set.add(fonteKey(e)));
   const ord = k => { const [q,t] = k.split("|"); const i = ENTRY_TYPES.indexOf(t); return [i<0?99:i, q]; };
   return [...set].sort((a,b)=>{ const [ia,qa] = ord(a), [ib,qb] = ord(b); return ia-ib || qa.localeCompare(qb); });
 }
-const baseEscolhida = k => { const b = cfg().bases?.[k]; return Array.isArray(b) ? b : null; };
+function marcado(k, fonte){
+  const linha = (cfg().fontes||[]).find(f => `${f.quem}|${f.tipo}` === fonte);
+  if (linha) return linha[k] !== false;
+  const antigo = cfg().bases?.[k];                       // escolha antiga, guardada só no app
+  return Array.isArray(antigo) ? antigo.includes(fonte) : true;
+}
+const baseEscolhida = k => fontes().some(f => !marcado(k, f));
 const formas = () => [...cfg().cartoes.map(c=>c.nome), ...PAY_FIXED];
 const catNames = () => cfg().categorias.map(c=>c.nome);
 const catColor = n => CAT_COLORS[Math.max(0,catNames().indexOf(n)) % CAT_COLORS.length];
@@ -113,7 +121,7 @@ function month(ym){
   const entradas = S.entradas.filter(e => e.mes === ym);
   const entrou = entradas.reduce((s,e)=>s+num(e.valor),0);
   const base = {};
-  for (const [k] of METAS){ const b = baseEscolhida(k); base[k] = b ? entradas.filter(e => b.includes(fonteKey(e))).reduce((s,e)=>s+num(e.valor),0) : entrou; }
+  for (const [k] of METAS) base[k] = entradas.filter(e => marcado(k, fonteKey(e))).reduce((s,e)=>s+num(e.valor),0);
   const sep = {dizimo: base.dizimo*num(c.metas.dizimo), reserva: base.reserva*num(c.metas.reserva), investimentos: base.investimentos*num(c.metas.investimentos)};
   const separado = sep.dizimo+sep.reserva+sep.investimentos;
   const fixas = c.fixas.reduce((s,f)=>s+num(f.valor),0);
@@ -371,11 +379,11 @@ function renderMetas(){
   <div class="settings">
     <section class="card"><div class="head"><h2>Quanto separar e de onde</h2></div>
       <div class="form">
-        <p class="sub">Escolha a porcentagem e marque sobre quais entradas ela vale.</p>
-        ${METAS.map(([k,t])=>{ const b = baseEscolhida(k); return `<div class="meta-bloco">
+        <p class="sub">Escolha a porcentagem e marque sobre quais entradas ela vale. Na planilha fica na aba Config, colunas R a V.</p>
+        ${METAS.map(([k,t])=>`<div class="meta-bloco">
           <label class="frow" style="grid-template-columns:minmax(0,1fr) minmax(0,96px)"><span><b>${t}</b></span><input id="meta-${k}" type="number" step="1" min="0" max="100" value="${Math.round(num(c.metas[k])*100)}" aria-label="${t} em %"></label>
-          <div class="fontes" role="group" aria-label="${t}: sobre quais entradas">${fontes().map(f=>`<label class="fonte"><input type="checkbox" data-base="${k}" value="${esc(f)}" ${!b || b.includes(f) ? "checked" : ""}><span>${esc(fonteNome(f))}</span></label>`).join("")}</div>
-          <p class="sub num">${Math.round(num(c.metas[k])*100)}% de ${money0(M.base[k])} = <b>${money0(M.sep[k])}</b> em ${esc(mLabel(S.mes).split(" ")[0])}</p></div>`; }).join("")}
+          <div class="fontes" role="group" aria-label="${t}: sobre quais entradas">${fontes().map(f=>`<label class="fonte"><input type="checkbox" data-base="${k}" value="${esc(f)}" ${marcado(k, f) ? "checked" : ""}><span>${esc(fonteNome(f))}</span></label>`).join("")}</div>
+          <p class="sub num">${Math.round(num(c.metas[k])*100)}% de ${money0(M.base[k])} = <b>${money0(M.sep[k])}</b> em ${esc(mLabel(S.mes).split(" ")[0])}</p></div>`).join("")}
         <p class="sub">Total separado em ${esc(mLabel(S.mes))}: <b>${money(M.separado)}</b> (entrou ${money(M.entrou)}).</p>
         <button class="btn" data-save="metas">Salvar porcentagens</button>
       </div></section>
@@ -741,7 +749,7 @@ async function deleteItem(kind, id){
 async function saveConfig(patch){
   S.config = {...cfg(), ...patch};
   const conf = {}, app = {};
-  for (const [k,v] of Object.entries(patch)) (["categorias","fixas","cartoes","metas","reserva"].includes(k) ? conf : app)[k] = v;
+  for (const [k,v] of Object.entries(patch)) (["categorias","fixas","cartoes","metas","reserva","fontes"].includes(k) ? conf : app)[k] = v;
   if (Object.keys(conf).length) enfileirar({a:"config", config:conf});
   if (Object.keys(app).length) enfileirar({a:"app", app});
   guardarLocal(); render(); toast("Salvo"); enviar();
@@ -807,9 +815,10 @@ document.addEventListener("click", async ev => {
   if (d.save){
     const c = cfg();
     if (d.save==="metas"){
-      const todas = fontes(), bases = {};
-      for (const [k] of METAS){ const marc = [...document.querySelectorAll(`[data-base="${k}"]:checked`)].map(x=>x.value); bases[k] = marc.length === todas.length ? null : marc; }
-      return saveConfig({metas:{dizimo:num($("#meta-dizimo").value)/100, reserva:num($("#meta-reserva").value)/100, investimentos:num($("#meta-investimentos").value)/100}, bases});
+      const marc = k => new Set([...document.querySelectorAll(`[data-base="${k}"]:checked`)].map(x=>x.value));
+      const M = Object.fromEntries(METAS.map(([k]) => [k, marc(k)]));
+      const lista = fontes().map(f => { const [quem, tipo] = f.split("|"); return {quem, tipo, dizimo:M.dizimo.has(f), reserva:M.reserva.has(f), investimentos:M.investimentos.has(f)}; });
+      return saveConfig({metas:{dizimo:num($("#meta-dizimo").value)/100, reserva:num($("#meta-reserva").value)/100, investimentos:num($("#meta-investimentos").value)/100}, fontes:lista, bases:null});
     }
     if (d.save==="reserva") return saveConfig({reserva:{saldo:num($("#res-saldo").value), meses:Number($("#res-meses").value)||6, atualizado:today()}});
     if (d.save==="assistente") return saveConfig({nomeAssistente:$("#nomeA").value.trim()||"Fina", regrasQuem:$("#regras").value});

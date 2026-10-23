@@ -249,6 +249,7 @@ function doPost_(e) {
   if (q.a === 'ping') return json_({ok: true, fina: true});
   if (!confere_(q.c)) return json_({ok: false, erro: 'codigo'});
   if (q.a === 'ler') return json_(dados_());
+  if (q.a === 'chaveIA') return json_({ok: true, chave: props_().getProperty('GEMINI_KEY') || ''});   // o app chama o Gemini direto (mais rápido)
   if (q.a === 'ia') return json_(ia_(q.prompt, q.imagens));
   if (q.a === 'foto') return json_(Object.assign({ok: true}, salvarFoto_(q.base64, q.mime, q.nome)));
   if (q.a === 'chave') {                 // a Daiana cola a chave do Gemini pelo app (fica só no Google)

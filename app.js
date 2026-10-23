@@ -300,7 +300,7 @@ function renderInicio(){
   </div>`:""}
   ${!on("alertas") ? "" : over.length||near.length ? `<div class="chips">${over.map(x=>`<span class="chip bad">${esc(x.nome)} passou ${money0(x.total-x.orc)}</span>`).join("")}${near.map(x=>`<span class="chip warn">${esc(x.nome)} em ${Math.round(x.total/x.orc*100)}%</span>`).join("")}</div>` : `<div class="chips"><span class="chip ok">Tudo dentro do orçamento</span></div>`}
   ${on("atalhos")?`<div class="quick">
-    <button class="qbtn" data-act="print">${I.cam}<span>Mandar print<small>fatura, Pix, comprovante</small></span></button>
+    <button class="qbtn" data-act="print">${I.cam}<span>Mandar fatura<small>foto, print ou PDF</small></span></button>
     <button class="qbtn" data-act="falar">${I.mic}<span>Falar um gasto<small>“gastei 70 de gasolina”</small></span></button>
   </div>`:""}
   <div class="grid2">
@@ -349,7 +349,7 @@ function renderGastos(){
   $("#view").innerHTML = `
   <div class="top"><div class="hello"><small>Tudo que foi lançado</small><h1>Gastos e entradas</h1></div>${monthSwitch()}</div>
   <div class="toolbar"><div class="seg" role="group" aria-label="Tipo">${[["gastos","Gastos"],["parcelas","Parcelas"],["entradas","Entradas"]].map(([k,t])=>`<button data-seg="${k}" aria-pressed="${S.listSeg===k}">${t}</button>`).join("")}</div>
-    <button class="btn" data-new="${S.listSeg==="gastos"?"gasto":S.listSeg==="parcelas"?"parcela":"entrada"}">${I.plus}Adicionar</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" data-act="print">${I.cam}Mandar fatura</button><button class="btn" data-new="${S.listSeg==="gastos"?"gasto":S.listSeg==="parcelas"?"parcela":"entrada"}">${I.plus}Adicionar</button></div></div>
   <section class="card">${body}</section>`;
 }
 function itemRow(kind, o, title, sub, valor, income){
@@ -397,16 +397,14 @@ function renderMetas(){
   </div>`;
 }
 
+const AJ_ABAS = [["visual","Visual"],["perfil","Perfil"],["fina","Fina"],["financas","Finanças"],["dados","Dados"]];
 function renderAjustes(){
   const c = cfg();
   const voices = (window.speechSynthesis?.getVoices?.()||[]).filter(v=>/^pt/i.test(v.lang));
-  $("#view").innerHTML = `
-  <div class="top"><div class="hello"><small>Personalize</small><h1>Ajustes</h1></div></div>
-  <div class="settings">
-    ${renderAparencia()}
-    ${renderAvatarCard()}
-    ${renderIA()}
-    ${renderAvisos()}
+  const aba = AJ_ABAS.some(([k])=>k===S.ajTab) ? S.ajTab : "visual";
+  let corpo = "";
+  if (aba === "visual") corpo = renderAparencia();
+  if (aba === "perfil") corpo = `${renderAvatarCard()}
     <section class="card"><div class="head"><h2>Do seu jeito</h2><span class="sub">vale só para ${esc(S.me)}</span></div><div class="form">
       <div class="flabel">Quem está usando</div>
       <button class="me-btn" data-act="switchPerson">${avatarHTML(S.me, 26)}${esc(S.me)} · trocar</button>
@@ -414,12 +412,16 @@ function renderAjustes(){
       <select id="voice"><option value="">Voz padrão do aparelho</option>${voices.map(v=>`<option value="${esc(v.name)}" ${S.voiceName===v.name?"selected":""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("")}</select>
       <button class="btn ghost" data-act="testvoice">${I.spk}Ouvir um teste</button>
     </div></section>
+    ${renderAvisos()}`;
+  if (aba === "fina") corpo = `${renderIA()}
     <section class="card"><div class="head"><h2>Assistente</h2></div><div class="form">
       <label class="flabel" for="nomeA">Nome</label><input id="nomeA" value="${esc(c.nomeAssistente)}">
       <label class="flabel" for="regras">Como saber de quem é cada gasto</label>
       <textarea id="regras">${esc(c.regrasQuem)}</textarea>
       <button class="btn" data-save="assistente">Salvar</button>
     </div></section>
+`;
+  if (aba === "financas") corpo = `
     <section class="card"><div class="head"><h2>Orçamento por categoria</h2><span class="sub num">${money0(c.categorias.reduce((s,k)=>s+num(k.orcamento),0))}/mês</span></div><div class="form" id="catsForm">
       ${c.categorias.map((k,i)=>`<div class="frow"><input data-cat-n="${i}" value="${esc(k.nome)}" aria-label="Categoria"><input data-cat-v="${i}" inputmode="decimal" value="${num(k.orcamento)}" aria-label="Orçamento"><button class="x" data-del-cat="${i}" aria-label="Remover">×</button></div>`).join("")}
       <div class="toolbar"><button class="btn ghost" data-add="cat">${I.plus}Categoria</button><button class="btn" data-save="cats">Salvar orçamentos</button></div>
@@ -433,6 +435,8 @@ function renderAjustes(){
       <p class="sub">Compras feitas a partir do dia de fechamento contam no mês seguinte.</p>
       <div class="toolbar"><button class="btn ghost" data-add="card">${I.plus}Cartão</button><button class="btn" data-save="cartoes">Salvar cartões</button></div>
     </div></section>
+`;
+  if (aba === "dados") corpo = `
     <section class="card"><div class="head"><h2>Seus dados</h2></div><div class="form">
       <p class="sub">${S.gastos.length} gastos, ${S.parcelas.length} parcelas e ${S.entradas.length} entradas guardados no app.</p>
       <button class="btn ghost" data-act="export">Baixar tudo em planilha (CSV)</button>
@@ -440,7 +444,11 @@ function renderAjustes(){
       <a class="btn ghost" href="manual.html">Abrir o manual</a>
       <button class="btn ghost" data-act="sair">Sair deste aparelho</button>
     </div></section>
-  </div>`;
+`;
+  $("#view").innerHTML = `
+  <div class="top"><div class="hello"><small>Personalize</small><h1>Ajustes</h1></div></div>
+  <div class="seg aj-abas" role="tablist" aria-label="Partes dos ajustes">${AJ_ABAS.map(([k,t])=>`<button role="tab" data-ajtab="${k}" aria-pressed="${aba===k}" aria-selected="${aba===k}">${t}</button>`).join("")}</div>
+  <div class="settings">${corpo}</div>`;
 }
 
 /* ---------- assistente ---------- */
@@ -457,9 +465,9 @@ function renderAssistente(){
       ${S.busy?`<div class="msg bot"><div class="b muted">Pensando…</div></div>`:""}
     </div>
     <div class="composer">
-      ${S.pendingImgs.length?`<div class="pending-imgs">${S.pendingImgs.map((f,i)=>`<span class="pi"><img src="${f.url}" alt="Print ${i+1}"><button data-rmimg="${i}" aria-label="Remover print">×</button></span>`).join("")}</div>`:""}
+      ${S.pendingImgs.length?`<div class="pending-imgs">${S.pendingImgs.map((f,i)=>`<span class="pi">${f.file.type==="application/pdf" ? `<span class="pdf">PDF</span>` : `<img src="${f.url}" alt="Print ${i+1}">`}<button data-rmimg="${i}" aria-label="Remover print">×</button></span>`).join("")}</div>`:""}
       <div class="row">
-        ${S.imgOK?`<button class="iconbtn" data-act="print" aria-label="Anexar prints">${I.clip}</button>`:""}
+        ${S.imgOK?`<button class="iconbtn" data-act="print" aria-label="Anexar foto, print ou PDF">${I.clip}</button>`:""}
         <textarea id="ask" rows="1" placeholder="Escreva ou fale…" aria-label="Mensagem">${esc(ls.get("draft",""))}</textarea>
         <button class="iconbtn" id="micBtn" data-act="mic" aria-label="Falar">${I.mic}</button>
         ${S.busy?`<button class="iconbtn" data-act="stop" aria-label="Parar">${I.stop}</button>`:`<button class="iconbtn send" data-act="send" aria-label="Enviar">${I.send}</button>`}
@@ -471,7 +479,7 @@ function renderAssistente(){
   window.scrollTo(0, document.body.scrollHeight);
 }
 function msgHTML(m, i){
-  if (m.role === "user") return `<div class="msg me">${m.imgs?`<div class="thumbs">${Array.from({length:m.imgs},()=>`<span class="chip">print</span>`).join("")}</div>`:""}${m.text?`<div class="b">${esc(m.text)}</div>`:""}</div>`;
+  if (m.role === "user") return `<div class="msg me">${m.imgs?`<div class="thumbs">${Array.from({length:m.imgs},()=>`<span class="chip">anexo</span>`).join("")}</div>`:""}${m.text?`<div class="b">${esc(m.text)}</div>`:""}</div>`;
   const props = m.items?.length ? proposalHTML(m, i) : "";
   return `<div class="msg bot"><div class="b">${esc(m.text)}</div>${props}<div class="meta"><button class="speak" data-speak="${i}">${I.spk}Ouvir</button>${m.saved?`<span>Salvo</span>`:""}</div></div>`;
 }
@@ -559,34 +567,112 @@ ${JSON.stringify(ctx)}
 ${hist?`Conversa recente:\n${hist}\n\n`:""}Nova mensagem${S.me?` de ${S.me}`:""}: ${text || "(só os prints anexados)"}`;
 }
 
+/* ---------- IA: o aparelho fala direto com o Gemini (rápido); se não der, vai pelo robô ---------- */
+async function chaveIA(){
+  const k = ls.get("gkey", ""); if (k) return k;
+  try{ const r = await api({a:"chaveIA"}); if (r.ok && r.chave){ ls.set("gkey", r.chave); return r.chave; } }catch{}
+  return "";
+}
+async function modeloIA(key){
+  const salvo = ls.get("gmodel", ""); if (salvo) return salvo;
+  let nomes = [];
+  try{ const j = await (await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", {headers:{"x-goog-api-key":key}})).json();
+    nomes = (j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")).map(m=>m.name.replace("models/","")); }catch{}
+  const m = nomes.includes("gemini-2.5-flash") ? "gemini-2.5-flash" : (nomes.find(n=>/flash/.test(n) && !/lite|image|tts|live|audio|exp|embed|8b/.test(n)) || "gemini-2.5-flash");
+  ls.set("gmodel", m); return m;
+}
+async function perguntarIA(prompt, anexos, signal){
+  const key = await chaveIA();
+  if (!key){ const r = await api({a:"ia", prompt, imagens: anexos}, signal); if (!r.ok) throw {code:r.erro}; return r.texto; }
+  const modelo = await modeloIA(key);
+  const body = {contents:[{role:"user", parts:[{text:prompt}, ...anexos.map(a=>({inline_data:{mime_type:a.mime, data:a.data}}))]}],
+    generationConfig:{temperature:.2, responseMimeType:"application/json", ...(/2\.5/.test(modelo) ? {thinkingConfig:{thinkingBudget:1024}} : {})}};
+  for (let tent = 0; tent < 3; tent++){
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {method:"POST", headers:{"Content-Type":"application/json", "x-goog-api-key":key}, body:JSON.stringify(body), signal});
+    if (r.ok){ const j = await r.json(); return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("").trim(); }
+    const t = await r.text().catch(()=>"");
+    if (r.status === 404){ ls.set("gmodel", ""); }
+    if ((r.status === 400 && /api.?key/i.test(t)) || r.status === 401 || r.status === 403){ ls.set("gkey", ""); throw {code:"chave_ruim"}; }
+    if (r.status === 429) throw {code:"limite"};
+    if (r.status >= 500 && tent < 2){ await new Promise(ok=>setTimeout(ok, 2500*(tent+1))); continue; }
+    throw {code:"ia_"+r.status, detalhe:t.replace(/\s+/g," ").slice(0,160)};
+  }
+}
+function lerBase64(file){ return new Promise((ok, erro) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1]); fr.onerror = () => erro(fr.error); fr.readAsDataURL(file); }); }
+async function anexosDe(files){
+  return Promise.all(files.map(async f => {
+    if (f.type === "application/pdf") return {mime:"application/pdf", data: await lerBase64(f)};
+    try{ return {mime:"image/jpeg", data: await imgBase64(f, 1600, .82)}; }
+    catch{ return {mime: f.type || "image/jpeg", data: await lerBase64(f)}; }   // ex.: foto HEIC do iPhone
+  }));
+}
+/* sem internet (ou conexão caiu): guarda o pedido e lê sozinha quando a internet voltar */
+function guardarParaDepois(item){
+  const fila = ls.get("filaIA", []); fila.push(item);
+  try{ localStorage.setItem("fina:filaIA", JSON.stringify(fila)); return true; }catch{ return false; }
+}
+let lendoFila = false;
+async function processarFilaIA(){
+  if (lendoFila || S.busy || !navigator.onLine || !codigo()) return;
+  const fila = ls.get("filaIA", []); if (!fila.length) return;
+  lendoFila = true;
+  try{
+    while (navigator.onLine){
+      const atual = ls.get("filaIA", []); if (!atual.length) break;
+      const it = atual[0];
+      const ok = await rodarIA(it.text, it.anexos, it.prompt, null, true);
+      if (!ok) break;
+      ls.set("filaIA", atual.slice(1));
+    }
+  } finally { lendoFila = false; }
+}
 async function sendMsg(){
   if (S.busy) return;
   const box = $("#ask"); const text = (box?.value||"").trim();
   if (!text && !S.pendingImgs.length) return;
-  if (!navigator.onLine){ toast("Sem internet agora. Você pode lançar pelo botão Adicionar em Gastos."); return; }
   const files = S.pendingImgs.map(p=>p.file);
   S.chat.push({role:"user", text, imgs: files.length});
   const prompt = buildPrompt(text, files.length);
   ls.set("draft",""); S.pendingImgs.forEach(p=>URL.revokeObjectURL(p.url)); S.pendingImgs = [];
+  S.busy = true; render();
+  let anexos = [];
+  try{ anexos = await anexosDe(files); }catch{ S.busy = false; S.chat.push({role:"assistant", text:"Não consegui abrir esse arquivo. Tente uma foto ou um PDF.", items:[]}); saveChat(); return render(); }
+  if (!navigator.onLine){
+    S.busy = false;
+    const ok = guardarParaDepois({text, anexos, prompt, quando: Date.now()});
+    S.chat.push({role:"assistant", text: ok ? "Estou sem internet agora. Guardei e leio sozinha assim que a internet voltar." : "Estou sem internet e o arquivo é grande demais para guardar. Mande de novo quando a internet voltar.", items:[]});
+    saveChat(); return render();
+  }
+  await rodarIA(text, anexos, prompt, files, false);
+}
+/* devolve false só quando a conexão falhou (para tentar de novo depois) */
+async function rodarIA(text, anexos, prompt, files, daFila){
   S.busy = true; S.ctl = new AbortController(); render();
+  let deuCerto = true;
   try{
-    const imagens = await Promise.all(files.map(f => imgBase64(f, 1600, .82)));
-    const r = await api({a:"ia", prompt, imagens: imagens.map(x=>({mime:"image/jpeg", data:x}))}, S.ctl.signal);
-    if (!r.ok) throw {code: r.erro};
-    const out = lerJSON(r.texto);
+    const texto = await perguntarIA(prompt, anexos, S.ctl.signal);
+    const out = lerJSON(texto);
     if (!out) throw {code:"invalid_json"};
     const items = Array.isArray(out?.itens) ? out.itens.filter(x=>x && ["gasto","parcela","entrada"].includes(x.tipo)).map(normItem) : [];
-    const msg = {role:"assistant", text: String(out?.resposta || (items.length?`Encontrei ${items.length} itens. Confira e toque em Salvar.`:"Não encontrei nada para lançar.")), items};
-    if (items.length && files.length) msg._f = files; // prints guardados ao salvar
+    const msg = {role:"assistant", text: (daFila ? "(Li o que você mandou sem internet.) " : "") + String(out?.resposta || (items.length?`Encontrei ${items.length} itens. Confira e toque em Salvar.`:"Não encontrei nada para lançar.")), items};
+    if (items.length && files?.length) msg._f = files.filter(f => f.type !== "application/pdf"); // prints guardados ao salvar
     S.chat.push(msg);
     if (S.speakOn) speak(msg.text);
   }catch(e){
     const code = e?.name==="AbortError" ? "cancelled" : e?.code;
-    const t = code==="cancelled" ? "Parei." : code==="sem_chave" ? "Falta a chave da IA. Cole em Ajustes → Inteligência da Fina." : code==="limite" ? "Usei todo o limite grátis da IA por agora. Tente de novo mais tarde ou lance pelo botão Adicionar." : code==="invalid_json" ? "Me confundi com a resposta. Pode mandar de novo?" : code==="codigo" ? "O código da família mudou. Entre de novo." : "Não consegui responder agora. Confira a internet e tente de novo.";
-    S.chat.push({role:"assistant", text:t, items:[]});
+    const caiu = !code && (e instanceof TypeError || !navigator.onLine);     // a conexão falhou no meio
+    if (caiu){
+      deuCerto = false;
+      if (!daFila){ const ok = guardarParaDepois({text, anexos, prompt, quando: Date.now()}); S.chat.push({role:"assistant", text: ok ? "A conexão falhou no meio. Guardei e tento de novo sozinha daqui a pouco." : "A conexão falhou e o arquivo é grande demais para guardar. Mande de novo, por favor.", items:[]}); }
+      setTimeout(processarFilaIA, 30000);
+    } else {
+      const t = code==="cancelled" ? "Parei." : code==="sem_chave" ? "Falta a chave da IA. Cole em Ajustes → Fina → Inteligência da Fina." : code==="chave_ruim" ? "A chave da IA não funcionou. Cole de novo em Ajustes → Fina → Inteligência da Fina." : code==="limite" ? "Usei todo o limite grátis da IA por agora. Tente de novo daqui a pouco ou lance pelo botão Adicionar." : code==="invalid_json" ? "Me confundi com a resposta. Pode mandar de novo?" : code==="codigo" ? "O código da família mudou. Entre de novo." : `Não consegui ler agora (${code||"erro"}${e?.detalhe ? ": "+e.detalhe : ""}). Tente de novo.`;
+      S.chat.push({role:"assistant", text:t, items:[]});
+    }
   }finally{
     S.busy = false; S.ctl = null; S.chat = S.chat.slice(-60); saveChat(); render();
   }
+  return deuCerto;
 }
 function normItem(x){
   const it = {...x, valor: num(x.valor), descricao: String(x.descricao||"").slice(0,120)};
@@ -793,6 +879,7 @@ document.addEventListener("click", async ev => {
   if (d.act==="avatarPhoto") return $("#avatarPick").click();
   if (d.m){ S.mes = addM(S.mes, Number(d.m)); return render(); }
   if (d.seg){ S.listSeg = d.seg; return render(); }
+  if (d.ajtab){ S.ajTab = d.ajtab; ls.set("ajTab", d.ajtab); render(); return window.scrollTo(0,0); }
   if (d.new) return openEditor(d.new);
   if (d.edit) return openEditor(d.edit, d.id);
   if (d.close && (t.classList.contains("btn") || ev.target === t)) { $("#modalRoot").innerHTML = ""; return; }
@@ -1003,7 +1090,7 @@ function salvarAvisos(patch){
 }
 function renderIA(){
   return `<section class="card"><div class="head"><h2>Inteligência da ${esc(cfg().nomeAssistente)}</h2><span class="sub">${S.temIA ? "ligada" : "falta a chave"}</span></div><div class="form">
-    ${S.temIA ? `<p class="sub">A IA está ligada (Gemini, grátis). A chave fica guardada no Google, não neste aparelho.</p>` :
+    ${S.temIA ? `<p class="sub">A IA está ligada (Gemini, grátis). A chave fica guardada no Google e nos aparelhos de vocês dois, para a Fina ler mais rápido.</p>` :
       `<p class="sub">Para eu ler prints e entender o que você fala, cole aqui uma chave grátis do Gemini. Pode ser a mesma do Daia Studio, ou crie uma em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (toque em “Criar chave de API” e copie).</p>`}
     <input id="chaveIA" type="password" autocomplete="off" placeholder="${S.temIA ? "trocar a chave" : "cole a chave aqui"}" aria-label="Chave do Gemini">
     <div class="toolbar"><button class="btn" data-act="salvarChave">Salvar chave</button>${S.temIA?`<button class="btn ghost" data-act="apagarChave">Apagar chave</button>`:""}</div>
@@ -1036,6 +1123,7 @@ document.addEventListener("click", async ev => {
     const k = a === "apagarChave" ? "__apagar__" : ($("#chaveIA")?.value || "").trim();
     if (!k) return toast("Cole a chave primeiro.");
     if (!navigator.onLine) return toast("Precisa de internet para guardar a chave.");
+    ls.set("gkey", k === "__apagar__" ? "" : k); ls.set("gmodel", "");
     try{ const r = await api({a:"chave", chave:k}); if (r.ok){ S.temIA = r.temIA; render(); toast(r.temIA ? "IA ligada" : "Chave apagada"); } else toast("Não consegui guardar a chave."); }catch{ toast("Não consegui guardar a chave."); }
     return;
   }
@@ -1050,17 +1138,17 @@ document.addEventListener("change", ev => {
   salvarAvisos({[k]: ev.target.checked});
 });
 document.addEventListener("keydown", ev => { if (ev.target.id === "gateCode" && ev.key === "Enter") entrar(); });
-window.addEventListener("online", () => { renderSeguro(); enviar(); carregar(); });
+window.addEventListener("online", () => { renderSeguro(); enviar(); carregar(); processarFilaIA(); });
 window.addEventListener("offline", () => renderSeguro());
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && codigo()) carregar(); });
 setInterval(() => { if (document.visibilityState === "visible" && codigo() && !S.busy) carregar(); }, 90000);
 
 function boot(){
-  S.fila = ls.get("fila", []);
+  S.fila = ls.get("fila", []); S.ajTab = ls.get("ajTab", "visual");
   const d = ls.get("dados", null);
   if (d && codigo()) aplicarDados(d);
   loadPerson(); applyTheme(); render();
-  carregar();
+  carregar(); setTimeout(processarFilaIA, 3000);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 boot();

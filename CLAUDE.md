@@ -18,6 +18,6 @@ Nada de senha, código da família, chave do Gemini, valores ou nomes de lojas a
 
 ## Ao mudar o app
 1. Teste no celular (~390px) e sem erros no console.
-2. Aumente `VERSAO` no `sw.js`.
+2. Aumente o número da versão nos 3 lugares: `VERSAO` no `sw.js`, `VERSAO_APP` no `app.js` e `?v=` no `index.html`. O celular baixa sozinho e recarrega.
 3. Se o funcionamento mudou, atualize `manual.html`.
 4. Mudou o robô? A Daiana precisa colar no Apps Script e fazer Implantar > Gerenciar implantações > lápis > Nova versão > Implantar.

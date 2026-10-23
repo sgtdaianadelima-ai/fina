@@ -1,5 +1,6 @@
 
 /* ---------- ícones ---------- */
+const VERSAO_APP = 13;   // igual ao número do sw.js
 const I = {
   olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
   olhoFechado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
@@ -446,6 +447,7 @@ function renderAjustes(){
   if (aba === "dados") corpo = `
     <section class="card"><div class="head"><h2>Seus dados</h2></div><div class="form">
       <p class="sub">${S.gastos.length} gastos, ${S.parcelas.length} parcelas e ${S.entradas.length} entradas guardados no app.</p>
+      <p class="sub">Versão do app: ${VERSAO_APP}</p>
       <button class="btn ghost" data-act="export">Baixar tudo em planilha (CSV)</button>
       <p class="sub">Tudo fica na planilha FAMÍLIA ASSIS, no Google Drive, e os prints na pasta "Fina – Comprovantes".</p>
       <a class="btn ghost" href="manual.html">Abrir o manual</a>
@@ -1169,6 +1171,15 @@ function boot(){
   if (d && codigo()) aplicarDados(d);
   loadPerson(); applyTheme(); render();
   carregar(); setTimeout(processarFilaIA, 3000);
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+  /* versão nova publicada: o celular baixa sozinho e recarrega a Fina uma vez */
+  if ("serviceWorker" in navigator){
+    const tinha = !!navigator.serviceWorker.controller; let recarregou = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (tinha && !recarregou){ recarregou = true; location.reload(); } });
+    navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(reg => {
+      const checar = () => reg.update().catch(()=>{});
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checar(); });
+      setInterval(checar, 30 * 60e3);
+    }).catch(()=>{});
+  }
 }
 boot();

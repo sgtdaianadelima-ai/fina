@@ -59,7 +59,11 @@ function linhas_(tipo) {
     if (!id) { id = novoId_(t.prefixo); faltaId.push([i + 2, id]); }
     out.push({row: r, id: id, linha: i + 2});
   });
-  faltaId.forEach(([l, id]) => sh.getRange(l, t.idCol).setValue(id));
+  if (faltaId.length) {                 // grava todos os IDs de uma vez (rápido mesmo com muitas linhas)
+    const col = vals.map(r => [r[t.idCol - 1]]);
+    faltaId.forEach(([l, id]) => { col[l - 2][0] = id; });
+    sh.getRange(2, t.idCol, col.length, 1).setValues(col);
+  }
   return out;
 }
 function lerGastos_() {

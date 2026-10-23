@@ -1,6 +1,8 @@
 
 /* ---------- ícones ---------- */
 const I = {
+  olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  olhoFechado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
   home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
   list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>',
   goal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>',
@@ -96,6 +98,10 @@ function marcado(k, fonte){
   return Array.isArray(antigo) ? antigo.includes(fonte) : true;
 }
 const baseEscolhida = k => fontes().some(f => !marcado(k, f));
+function resumoFontes(k){ const todas = fontes(), sim = todas.filter(f => marcado(k, f)); return sim.length === todas.length ? "todas as entradas" : sim.length ? sim.map(fonteNome).join(", ") : "nenhuma entrada"; }
+/* bloco que abre e fecha com uma setinha (lembra se estava aberto) */
+function dobra(id, titulo, conteudo){ return `<details class="dobra" data-dobra="${id}" ${S.dobras?.[id] ? "open" : ""}><summary><span>${esc(titulo)}</span><svg class="seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="dobra-in">${conteudo}</div></details>`; }
+document.addEventListener("toggle", ev => { const d = ev.target; if (d.dataset?.dobra){ S.dobras = {...(S.dobras||{}), [d.dataset.dobra]: d.open}; } }, true);
 const formas = () => [...cfg().cartoes.map(c=>c.nome), ...PAY_FIXED];
 const catNames = () => cfg().categorias.map(c=>c.nome);
 const catColor = n => CAT_COLORS[Math.max(0,catNames().indexOf(n)) % CAT_COLORS.length];
@@ -166,7 +172,7 @@ const THEMES = {
             dark: PAL("#0F1613","#17211C","#1E2A24","#2B3A32","#E8EFEA","#A9B8AF","#7A8A81","#3CC593","#E6B04B","#F0806B","#5AD08C","#26342D")},
 };
 const SWATCHES = ["#B4507A","#D9694A","#E0A33A","#4F8A65","#2E8B8B","#3F6FD1","#7457C4","#C2185B","#8D6E63","#2F3437"];
-const HOME_SECTIONS = [["stats","Números do mês"],["alertas","Avisos de orçamento"],["atalhos","Atalhos (print e falar)"],["categorias","Categorias"],["separado","Separado antes de gastar"],["reserva","Reserva de emergência"],["fechamentos","Próximos fechamentos"],["renda","Renda de cada um"]];
+const HOME_SECTIONS = [["stats","Números do mês"],["atalhos","Atalhos (print e falar)"],["categorias","Categorias"],["separado","Separado antes de gastar"],["reserva","Reserva de emergência"],["fechamentos","Próximos fechamentos"],["renda","Renda de cada um"]];
 const THEME_DEFAULT = {preset:"nos", modo:"auto", accent:"", fd:"", fb:"", tamanho:"m", cantos:"suaves", cartoes:"plano", secoes:Object.fromEntries(HOME_SECTIONS.map(([k])=>[k,true]))};
 function personTheme(nome){ const t = (S.config && S.config.perfis && S.config.perfis[nome] && S.config.perfis[nome].tema) || {}; return {...THEME_DEFAULT, ...t, secoes:{...THEME_DEFAULT.secoes, ...(t.secoes||{})}}; }
 function themeNow(){ return personTheme(S.me); }
@@ -225,8 +231,7 @@ function renderAparencia(){
       <div class="flabel">Tamanho do texto</div>${seg("tamanho",[["p","Pequeno"],["m","Médio"],["g","Grande"]])}
       <div class="flabel">Cantos</div>${seg("cantos",[["retos","Retos"],["suaves","Suaves"],["redondos","Bem redondos"]])}
       <div class="flabel">Cartões</div>${seg("cartoes",[["plano","Planos"],["borda","Com borda"],["sombra","Com sombra"]])}
-      <div class="flabel">O que aparece no Início</div>
-      <div class="checks">${HOME_SECTIONS.map(([k,l])=>`<label><input type="checkbox" data-secao="${k}" ${t.secoes[k]!==false?"checked":""}> ${l}</label>`).join("")}</div>
+      ${dobra("secoes", `O que aparece no Início (${HOME_SECTIONS.filter(([k])=>t.secoes[k]!==false).length} de ${HOME_SECTIONS.length})`, `<div class="checks">${HOME_SECTIONS.map(([k,l])=>`<label><input type="checkbox" data-secao="${k}" ${t.secoes[k]!==false?"checked":""}> ${l}</label>`).join("")}</div>`)}
       ${(()=>{ const v = month(S.mes).ainda; return `<div class="preview"><span class="sub">Prévia</span><br><b class="num">${money0(Math.abs(v))}</b><div class="sub">${v<0?"passou do limite em":"ainda dá pra gastar em"} ${esc(mLabel(S.mes).split(" ")[0])}</div></div>`; })()}
       <div class="toolbar"><button class="btn ghost" data-act="themeReset">Voltar ao padrão</button>${cfg().pessoas.filter(n=>n!==S.me).map(n=>`<button class="btn ghost" data-act="themeCopy">Copiar o visual de ${esc(n)}</button>`).join("")}</div>
     </div></section>`;
@@ -284,47 +289,48 @@ function renderInicio(){
   const seen = new Set(); const closingsU = closings.filter(x => { const k = x.d.toDateString()+x.nome.split(" ")[0]; if (seen.has(k)) return false; seen.add(k); return true; });
 
   const sec = themeNow().secoes, on = k => sec[k] !== false;
+  const mv = v => S.ver ? money0(v) : "R$ •••••";          // valores escondidos até tocar no olhinho
+  const salario = M.entradas.filter(e=>e.tipo==="Salário").reduce((s,e)=>s+num(e.valor),0);
   $("#view").innerHTML = `
   <div class="top"><div class="hello"><small>${esc(c.nomeAssistente)} · finanças da família</small><h1>${hello}</h1>${netBadge()}</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="me-btn" data-act="switchPerson" aria-label="Trocar de pessoa">${avatarHTML(S.me, 26)}Trocar</button>${monthSwitch()}</div></div>
   <section class="card hero ${M.ainda<0?'neg':''}" aria-label="Quanto ainda dá pra gastar">
-    <svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 5 6.4 5c2 0 3.6 1.2 4.6 2.7C12 6.2 13.6 5 15.6 5 19 5 21.1 8.4 19.6 11.8 17.5 16.4 12 21 12 21z" fill="var(--accent)" opacity=".35"/></svg>
+    <button class="olho" data-act="olho" aria-pressed="${!!S.ver}" aria-label="${S.ver?"Esconder valores":"Mostrar valores"}">${S.ver?I.olho:I.olhoFechado}</button>
     <div class="lbl">${M.ainda<0 ? "Passou do limite em" : "Ainda dá pra gastar"}</div>
-    <div class="big num">${money0(Math.abs(M.ainda))}</div>
+    <div class="big num">${mv(Math.abs(M.ainda))}</div>
     <div class="meter" aria-hidden="true"><i style="width:${(usado*100).toFixed(1)}%"></i></div>
-    <div class="legend num"><span>${Math.round(usado*100)}% da renda já comprometida</span><span>entrou ${money0(M.entrou)}</span></div>
+    <div class="legend num"><span>${Math.round(usado*100)}% da renda já comprometida</span><span>entrou ${mv(M.entrou)}</span></div>
   </section>
   ${on("stats")?`<div class="stats">
-    <div class="stat"><small>Entrou no mês</small><b class="num">${money0(M.entrou)}</b><span>${money0(M.entradas.filter(e=>e.tipo==="Salário").reduce((s,e)=>s+num(e.valor),0))} de salário · ${money0(M.entradas.filter(e=>e.tipo!=="Salário").reduce((s,e)=>s+num(e.valor),0))} de vales e extras</span></div>
-    <div class="stat"><small>Separado primeiro</small><b class="num">${money0(M.separado)}</b><span>dízimo, reserva e investimentos</span></div>
-    <div class="stat"><small>Contas fixas</small><b class="num">${money0(M.fixas)}</b><span>${c.fixas.length} contas do mês</span></div>
-    <div class="stat"><small>Gasto no mês</small><b class="num">${money0(M.dia+M.parc)}</b><span>${money0(M.dia)} no dia a dia · ${money0(M.parc)} em parcelas</span></div>
+    <div class="stat s-entrou"><small>Entrou no mês</small><b class="num">${mv(M.entrou)}</b><span>${S.ver ? `${money0(salario)} de salário` : "salários, vales e extras"}</span></div>
+    <div class="stat s-sep"><small>Separado primeiro</small><b class="num">${mv(M.separado)}</b><span>dízimo, reserva e investimentos</span></div>
+    <div class="stat s-fixas"><small>Contas fixas</small><b class="num">${mv(M.fixas)}</b><span>${c.fixas.length} contas do mês</span></div>
+    <div class="stat s-gasto"><small>Gasto no mês</small><b class="num">${mv(M.dia+M.parc)}</b><span>dia a dia e parcelas</span></div>
   </div>`:""}
-  ${!on("alertas") ? "" : over.length||near.length ? `<div class="chips">${over.map(x=>`<span class="chip bad">${esc(x.nome)} passou ${money0(x.total-x.orc)}</span>`).join("")}${near.map(x=>`<span class="chip warn">${esc(x.nome)} em ${Math.round(x.total/x.orc*100)}%</span>`).join("")}</div>` : `<div class="chips"><span class="chip ok">Tudo dentro do orçamento</span></div>`}
   ${on("atalhos")?`<div class="quick">
     <button class="qbtn" data-act="print">${I.cam}<span>Mandar fatura<small>foto, print ou PDF</small></span></button>
     <button class="qbtn" data-act="falar">${I.mic}<span>Falar um gasto<small>“gastei 70 de gasolina”</small></span></button>
   </div>`:""}
   <div class="grid2">
-    ${on("categorias")?`<section class="card"><div class="head"><h2>Como está cada categoria</h2><span class="sub num">${money0(M.cats.reduce((s,x)=>s+x.total,0))} de ${money0(M.cats.reduce((s,x)=>s+x.orc,0))}</span></div>
+    ${on("categorias")?`<section class="card"><div class="head"><h2>Como está cada categoria</h2><span class="sub num">${S.ver ? `${money0(M.cats.reduce((s,x)=>s+x.total,0))} de ${money0(M.cats.reduce((s,x)=>s+x.orc,0))}` : `${over.length} passaram do orçado`}</span></div>
       <div class="cats">${cats.map(x=>{
         const p = x.orc ? x.total/x.orc : 1; const cls = p>1 ? "bad" : p>=.8 ? "warn" : "";
-        return `<div class="cat"><div class="row"><b>${esc(x.nome)}</b><span class="num">${money0(x.total)} <span class="muted">/ ${x.orc?money0(x.orc):"sem orçamento"}</span></span></div><div class="bar"><i class="${cls}" style="width:${Math.min(100,p*100).toFixed(1)}%"></i></div></div>`;}).join("") || `<p class="empty">Nenhuma categoria ainda. Crie em Ajustes.</p>`}</div>
+        return `<div class="cat"><div class="row"><b>${esc(x.nome)}</b><span class="num">${S.ver ? `${money0(x.total)} <span class="muted">/ ${x.orc?money0(x.orc):"sem orçamento"}</span>` : x.orc ? `<span class="muted">${Math.round(x.total/x.orc*100)}%</span>` : ""}</span></div><div class="bar"><i class="${cls}" style="width:${Math.min(100,p*100).toFixed(1)}%"></i></div></div>`;}).join("") || `<p class="empty">Nenhuma categoria ainda. Crie em Ajustes.</p>`}</div>
     </section>`:""}
     <div class="wrap" style="gap:16px">
       ${on("separado")?`<section class="card"><div class="head"><h2>Separado antes de gastar</h2></div>
         <div class="split num">
-          <div class="line"><span>Dízimo / doação · ${Math.round(num(c.metas.dizimo)*100)}%${baseEscolhida("dizimo") ? ` <small class="muted">de ${money0(M.base.dizimo)}</small>` : ""}</span><b>${money0(M.sep.dizimo)}</b></div>
-          <div class="line"><span>Reserva de emergência · ${Math.round(num(c.metas.reserva)*100)}%${baseEscolhida("reserva") ? ` <small class="muted">de ${money0(M.base.reserva)}</small>` : ""}</span><b>${money0(M.sep.reserva)}</b></div>
-          <div class="line"><span>Investimentos · ${Math.round(num(c.metas.investimentos)*100)}%${baseEscolhida("investimentos") ? ` <small class="muted">de ${money0(M.base.investimentos)}</small>` : ""}</span><b>${money0(M.sep.investimentos)}</b></div>
+          <div class="line"><span>Dízimo / doação · ${Math.round(num(c.metas.dizimo)*100)}%${baseEscolhida("dizimo") ? ` <small class="muted">de ${mv(M.base.dizimo)}</small>` : ""}</span><b>${mv(M.sep.dizimo)}</b></div>
+          <div class="line"><span>Reserva de emergência · ${Math.round(num(c.metas.reserva)*100)}%${baseEscolhida("reserva") ? ` <small class="muted">de ${mv(M.base.reserva)}</small>` : ""}</span><b>${mv(M.sep.reserva)}</b></div>
+          <div class="line"><span>Investimentos · ${Math.round(num(c.metas.investimentos)*100)}%${baseEscolhida("investimentos") ? ` <small class="muted">de ${mv(M.base.investimentos)}</small>` : ""}</span><b>${mv(M.sep.investimentos)}</b></div>
         </div></section>`:""}
       ${on("reserva")?`<section class="card"><div class="head"><h2>Reserva de emergência</h2><span class="sub">meta de ${esc(c.reserva.meses)} meses</span></div>
-        <div class="split num"><div class="line"><span>${saldoRes ? "Guardado" : "Saldo ainda não informado"}</span><b>${saldoRes?money0(saldoRes):"—"} / ${money0(metaReserva)}</b></div>
+        <div class="split num"><div class="line"><span>${saldoRes ? "Guardado" : "Saldo ainda não informado"}</span><b>${saldoRes?mv(saldoRes):"—"} / ${mv(metaReserva)}</b></div>
         <div class="bar"><i style="width:${metaReserva?Math.min(100,saldoRes/metaReserva*100).toFixed(1):0}%"></i></div></div></section>`:""}
       ${on("fechamentos")?`<section class="card"><div class="head"><h2>Próximos fechamentos</h2></div><div class="closings">${closingsU.slice(0,5).map(x=>`<div class="closing"><span>${esc(x.nome)}</span><span class="sub">${x.dias===0?"hoje":x.dias===1?"amanhã":`em ${x.dias} dias`} · ${x.d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span></div>`).join("") || `<p class="sub">Informe os fechamentos em Ajustes.</p>`}</div></section>`:""}
     </div>
   </div>
-  ${on("renda")?`<section class="card"><div class="head"><h2>Quem trouxe o quê</h2><span class="sub num">${money0(M.entrou)}</span></div>
-    <div class="split num">${Object.entries(M.pessoas).map(([k,v])=>`<div class="line"><span>${esc(k)}</span><b>${money0(v)}</b></div>`).join("") || `<p class="sub">Nenhuma entrada lançada neste mês.</p>`}</div></section>`:""}`;
+  ${on("renda")?`<section class="card"><div class="head"><h2>Quem trouxe o quê</h2><span class="sub num">${mv(M.entrou)}</span></div>
+    <div class="split num">${Object.entries(M.pessoas).map(([k,v])=>`<div class="line"><span>${esc(k)}</span><b>${mv(v)}</b></div>`).join("") || `<p class="sub">Nenhuma entrada lançada neste mês.</p>`}</div></section>`:""}`;
 }
 
 function renderGastos(){
@@ -383,7 +389,7 @@ function renderMetas(){
         <p class="sub">Escolha a porcentagem e marque sobre quais entradas ela vale. Na planilha fica na aba Config, colunas R a V.</p>
         ${METAS.map(([k,t])=>`<div class="meta-bloco">
           <label class="frow" style="grid-template-columns:minmax(0,1fr) minmax(0,96px)"><span><b>${t}</b></span><input id="meta-${k}" type="number" step="1" min="0" max="100" value="${Math.round(num(c.metas[k])*100)}" aria-label="${t} em %"></label>
-          <div class="fontes" role="group" aria-label="${t}: sobre quais entradas">${fontes().map(f=>`<label class="fonte"><input type="checkbox" data-base="${k}" value="${esc(f)}" ${marcado(k, f) ? "checked" : ""}><span>${esc(fonteNome(f))}</span></label>`).join("")}</div>
+          ${dobra("meta-"+k, `Sobre: ${resumoFontes(k)}`, `<div class="fontes" role="group" aria-label="${t}: sobre quais entradas">${fontes().map(f=>`<label class="fonte"><input type="checkbox" data-base="${k}" value="${esc(f)}" ${marcado(k, f) ? "checked" : ""}><span>${esc(fonteNome(f))}</span></label>`).join("")}</div>`)}
           <p class="sub num">${Math.round(num(c.metas[k])*100)}% de ${money0(M.base[k])} = <b>${money0(M.sep[k])}</b> em ${esc(mLabel(S.mes).split(" ")[0])}</p></div>`).join("")}
         <p class="sub">Total separado em ${esc(mLabel(S.mes))}: <b>${money(M.separado)}</b> (entrou ${money(M.entrou)}).</p>
         <button class="btn" data-save="metas">Salvar porcentagens</button>
@@ -926,6 +932,7 @@ document.addEventListener("click", async ev => {
     if (d.save==="fixas") return saveConfig({fixas: collectRows("fix-n","fix-v").map(([n,v])=>({nome:n, valor:v}))});
     if (d.save==="cartoes") return saveConfig({cartoes: collectRows("card-n","card-f",false).map(([n,f,i])=>({nome:n, fecha:Number(f)||"", vence:Number(document.querySelector(`[data-card-v="${i}"]`)?.value)||""}))});
   }
+  if (d.act==="olho"){ S.ver = !S.ver; return render(); }
   if (d.act==="print"){ if (S.tab!=="assistente") go("assistente"); return $("#filePick").click(); }
   if (d.act==="falar"){ go("assistente"); return startMic(); }
   if (d.act==="mic") return startMic();
@@ -1118,9 +1125,9 @@ function renderAvisos(){
       <li>Instale o app grátis <b>ntfy</b> (Play Store ou App Store).</li>
       <li>No ntfy, toque em <b>+</b> e assine este tópico: <span class="code">${esc(av.topico)}</span> <button class="speak" data-act="copiarTopico">Copiar</button></li>
       <li>Toque em <b>Testar aviso</b> aqui embaixo.</li></ol>
-      ${linha("fechamento","Fatura fecha amanhã","um dia antes de cada cartão fechar")}
+      ${dobra("avisos", `Quais avisos (${["fechamento","orcamento","semanal"].filter(k=>av[k]!==false).length} de 3 ligados)`, `${linha("fechamento","Fatura fecha amanhã","um dia antes de cada cartão fechar")}
       ${linha("orcamento","Orçamento","quando uma categoria chega a 80% e quando passa")}
-      ${linha("semanal","Resumo de domingo","quanto ainda dá pra gastar no mês")}
+      ${linha("semanal","Resumo de domingo","quanto ainda dá pra gastar no mês")}`)}
       <button class="btn ghost" data-act="testarAviso">Testar aviso</button>` : `<p class="sub">Desligado. Ligue para escolher quais avisos quer receber neste celular.</p>`}
   </div></section>`;
 }

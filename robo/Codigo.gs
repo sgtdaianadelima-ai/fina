@@ -227,15 +227,22 @@ function confere_(c) {
   return true;
 }
 function doGet(e) {
-  const p = (e && e.parameter) || {};
-  if (p.a === 'ping') return json_({ok: true, fina: true});
-  if (!confere_(p.c)) return json_({ok: false, erro: 'codigo'});
-  try { return json_(dados_()); } catch (err) { return json_({ok: false, erro: String(err)}); }
+  try {
+    const p = (e && e.parameter) || {};
+    if (p.a === 'ping') return json_({ok: true, fina: true});
+    if (!confere_(p.codigo || p.c)) return json_({ok: false, erro: 'codigo'});
+    return json_(dados_());
+  } catch (err) { return json_({ok: false, erro: String(err)}); }
 }
 function doPost(e) {
+  try { return doPost_(e); } catch (err) { return json_({ok: false, erro: String(err)}); }
+}
+function doPost_(e) {
   let q = {};
   try { q = JSON.parse(e.postData.contents || '{}'); } catch (err) { return json_({ok: false, erro: 'json'}); }
+  if (q.a === 'ping') return json_({ok: true, fina: true});
   if (!confere_(q.c)) return json_({ok: false, erro: 'codigo'});
+  if (q.a === 'ler') return json_(dados_());
   if (q.a === 'ia') return json_(ia_(q.prompt, q.imagens));
   if (q.a === 'foto') return json_(Object.assign({ok: true}, salvarFoto_(q.base64, q.mime, q.nome)));
   if (q.a === 'chave') {                 // a Daiana cola a chave do Gemini pelo app (fica só no Google)

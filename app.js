@@ -923,7 +923,7 @@ async function enviar(){
 async function carregar(){
   if (!codigo() || !robo()) return;
   try{
-    const t = await (await fetch(robo() + "?c=" + encodeURIComponent(codigo()))).text();
+    const t = await (await fetch(robo(), {method:"POST", body: JSON.stringify({a:"ler", c: codigo()})})).text();
     let r; try{ r = JSON.parse(t); }catch{ S.erro = "O robô deu erro: " + (t.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,160) || "resposta vazia"); applyTheme(); renderSeguro(); return; }
     if (r.ok){ aplicarDados(r); guardarLocal(); S.erro = ""; }
     else if (r.erro === "codigo") return sair("Esse código não abriu a planilha. Confira e tente de novo.");

@@ -129,6 +129,7 @@ function salvar_(tipo, it) {
   }
   const id = it.id || novoId_(t.prefixo);
   if (!linha) linha = ultimaLinha_(sh) + 1;
+  if (linha > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 100);   // aba cheia: cria mais linhas
   if (tipo === 'gasto') {
     sh.getRange(linha, 1, 1, 6).setValues([[paraData_(it.data) || new Date(), num_(it.valor), it.categoria || '', it.quem || '', it.forma || '', it.descricao || '']]);
     sh.getRange(linha, 8, 1, 4).setValues([[id, it.comprovante || '', it.criadoPor || '', it.criadoEm ? new Date(it.criadoEm) : new Date()]]);

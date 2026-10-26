@@ -1,6 +1,6 @@
 
 /* ---------- ícones ---------- */
-const VERSAO_APP = 13;   // igual ao número do sw.js
+const VERSAO_APP = 14;   // igual ao número do sw.js
 const I = {
   olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
   olhoFechado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
@@ -342,7 +342,7 @@ function renderGastos(){
     rows.sort((a,b)=> b.data.localeCompare(a.data));
     const byDay = {}; rows.forEach(g => (byDay[g.data] ||= []).push(g));
     body = `<div class="filters"><select id="fCat" aria-label="Filtrar categoria"><option value="">Todas as categorias</option>${catNames().map(n=>`<option ${S.fCat===n?"selected":""}>${esc(n)}</option>`).join("")}</select>
-      <select id="fQuem" aria-label="Filtrar pessoa"><option value="">Todas as pessoas</option>${c.pessoas.map(n=>`<option ${S.fQuem===n?"selected":""}>${esc(n)}</option>`).join("")}<option value="__none" ${S.fQuem==="__none"?"selected":""}>Sem nome</option></select></div>
+      <select id="fQuem" aria-label="Filtrar pessoa"><option value="">Todas as pessoas</option>${[...c.pessoas,"Casal"].map(n=>`<option ${S.fQuem===n?"selected":""}>${esc(n)}</option>`).join("")}<option value="__none" ${S.fQuem==="__none"?"selected":""}>Sem nome</option></select></div>
       ${Object.keys(byDay).map(d => `<div class="day">${esc(dLabel(d))}</div>` + byDay[d].map(g => itemRow("gasto", g, g.descricao, `${g.categoria} · ${g.forma||"sem forma"}${g.quem?" · "+g.quem:""}${compMonth(g)!==g.data.slice(0,7)?" · conta em "+mLabel(compMonth(g)).split(" ")[0]:""}`, g.valor)).join("")).join("") || `<p class="empty">Nenhum gasto neste mês. Mande um print ou fale com a ${esc(c.nomeAssistente)}.</p>`}
       <div class="total num"><span>Total</span><span>${money(rows.reduce((s,g)=>s+num(g.valor),0))}</span></div>`;
   } else if (S.listSeg === "parcelas"){
@@ -508,7 +508,7 @@ function proposalHTML(m, i){
       <label class="c2">Valor${it.tipo==="parcela"?" da parcela":""}<input id="${id}-valor" inputmode="decimal" value="${esc(String(it.valor).replace(".",","))}"></label>
       <label class="c2">Categoria<select id="${id}-categoria">${opts(catNames(), it.categoria)}</select></label>
       <label class="c2">Forma<select id="${id}-forma">${opts(formas(), it.forma)}</select></label>
-      <label class="c2">Quem<select id="${id}-quem">${opts(c.pessoas, it.quem)}</select></label>
+      <label class="c2">Quem<select id="${id}-quem">${opts([...c.pessoas,"Casal"], it.quem)}</select></label>
       <label class="c2">Descrição<input id="${id}-descricao" value="${esc(it.descricao)}"></label>
       ${it.tipo==="parcela"?`<label class="c2">Parcela atual<input type="number" min="1" id="${id}-parcela_atual" value="${esc(it.parcela_atual||1)}"></label><label class="c2">Total de parcelas<input type="number" min="1" id="${id}-total_parcelas" value="${esc(it.total_parcelas||1)}"></label><label class="c2">1ª parcela em<input type="month" id="${id}-inicio" value="${esc(it.inicio||inicioPadrao(it))}"></label>`:""}`;
     return `<div class="prop ${it.skip?"off":""}"><div class="kind"><span>${it.tipo==="gasto"?"Gasto":it.tipo==="parcela"?"Compra parcelada":"Entrada de dinheiro"}</span>${m.saved?"":`<label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2)"><input type="checkbox" data-skip="${i}-${j}" ${it.skip?"":"checked"} style="width:auto"> salvar</label>`}</div>${common}${dup?`<div class="warnline">Parece que já está lançado. Desmarque se for repetido.</div>`:""}</div>`;
@@ -810,7 +810,7 @@ function openEditor(kind, id){
     <label>Valor (R$)<input id="e-valor" inputmode="decimal" value="${o.valor!=null?String(o.valor).replace(".",","):""}"></label>
     <label>Categoria<select id="e-categoria">${opts(catNames(), o.categoria)}</select></label>
     <label>Forma de pagamento<select id="e-forma">${opts(formas(), o.forma)}</select></label>
-    <label>Quem<select id="e-quem">${opts(c.pessoas, o.quem)}</select></label>
+    <label>Quem<select id="e-quem">${opts([...c.pessoas,"Casal"], o.quem)}</select></label>
     <label>Descrição<input id="e-descricao" value="${esc(o.descricao)}"></label>`;
   else if (kind==="parcela") fields = `
     <label class="full">Descrição<input id="e-descricao" value="${esc(o.descricao)}"></label>
@@ -819,7 +819,7 @@ function openEditor(kind, id){
     <label>1ª parcela em<input type="month" id="e-inicio" value="${esc(o.inicio)}"></label>
     <label>Categoria<select id="e-categoria">${opts(catNames(), o.categoria)}</select></label>
     <label>Forma de pagamento<select id="e-forma">${opts(formas(), o.forma)}</select></label>
-    <label>Quem<select id="e-quem">${opts(c.pessoas, o.quem)}</select></label>`;
+    <label>Quem<select id="e-quem">${opts([...c.pessoas,"Casal"], o.quem)}</select></label>`;
   else fields = `
     <label>Mês<input type="month" id="e-mes" value="${esc(o.mes)}"></label>
     <label>Valor (R$)<input id="e-valor" inputmode="decimal" value="${o.valor!=null?String(o.valor).replace(".",","):""}"></label>

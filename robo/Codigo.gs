@@ -41,14 +41,23 @@ const TAB = {
   gasto:   {aba: 'Lançamentos', idCol: 8, prefixo: 'g'},
   parcela: {aba: 'Parcelas',    idCol: 10, prefixo: 'p'},
   entrada: {aba: 'Entradas',    idCol: 6, prefixo: 'e'},
+  separado: {aba: 'Separado',   idCol: 6, prefixo: 's'},   // A Mês | B Para quê | C Valor | D Quem | E Descrição | F ID
 };
+const PARA_ = {dizimo: 'Dízimo / doação', reserva: 'Reserva de emergência', investimentos: 'Investimentos'};
+const paraChave_ = v => /d[ií]zimo|doa/i.test(v) ? 'dizimo' : /reserva/i.test(v) ? 'reserva' : /invest/i.test(v) ? 'investimentos' : '';
+function abaSeparado_() {
+  let sh = aba_('Separado');
+  if (!sh) { sh = ss_().insertSheet('Separado'); sh.getRange('A1:F1').setValues([['Mês', 'Para quê', 'Valor', 'Quem', 'Descrição', 'ID']]).setFontWeight('bold'); sh.setFrozenRows(1); }
+  return sh;
+}
 function ultimaLinha_(sh) {           // última linha com algo na coluna A (ignora fórmulas que se espalham)
   const v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues();
   for (let i = v.length - 1; i >= 0; i--) if (String(v[i][0]).trim() !== '') return i + 1;
   return 1;
 }
 function linhas_(tipo) {
-  const t = TAB[tipo], sh = aba_(t.aba), last = ultimaLinha_(sh);
+  const t = TAB[tipo], sh = aba_(t.aba); if (!sh) return [];
+  const last = ultimaLinha_(sh);
   if (last < 2) return [];
   const larg = Math.max(t.idCol, tipo === 'gasto' ? 11 : t.idCol);
   const vals = sh.getRange(2, 1, last - 1, larg).getValues();
@@ -73,6 +82,9 @@ function lerGastos_() {
 function lerParcelas_() {
   return linhas_('parcela').map(({row: r, id}) => ({id, descricao: String(r[0] || ''), categoria: String(r[1] || ''), valor: num_(r[2]), n: Number(r[3]) || 1,
     inicio: textoData_(r[4], true), forma: String(r[5] || ''), quem: String(r[6] || '')}));
+}
+function lerSeparados_() {
+  return linhas_('separado').map(({row: r, id}) => ({id, mes: textoData_(r[0], true), para: paraChave_(String(r[1] || '')), valor: num_(r[2]), quem: String(r[3] || ''), descricao: String(r[4] || '')}));
 }
 function lerEntradas_() {
   return linhas_('entrada').map(({row: r, id}) => ({id, mes: textoData_(r[0], true), quem: String(r[1] || ''), tipo: String(r[2] || ''), valor: num_(r[3]), descricao: String(r[4] || '')}));
@@ -109,14 +121,14 @@ function gravarApp_(patch) {
   return novo;
 }
 function dados_() {
-  return {ok: true, temIA: !!props_().getProperty('GEMINI_KEY'), config: lerConfig_(), app: lerApp_(), gastos: lerGastos_(), parcelas: lerParcelas_(), entradas: lerEntradas_(),
+  return {ok: true, temIA: !!props_().getProperty('GEMINI_KEY'), config: lerConfig_(), app: lerApp_(), gastos: lerGastos_(), parcelas: lerParcelas_(), entradas: lerEntradas_(), separados: lerSeparados_(),
           atualizado: new Date().toISOString()};
 }
 
 // ---------- gravar ----------
 function salvar_(tipo, it) {
   const t = TAB[tipo]; if (!t) throw new Error('tipo inválido');
-  const sh = aba_(t.aba);
+  const sh = tipo === 'separado' ? abaSeparado_() : aba_(t.aba);
   let linha = 0;
   if (String(it.id || '').indexOf('tmp-') === 0) it.id = '';   // criado sem internet no celular
   if (it.id) {
@@ -138,6 +150,9 @@ function salvar_(tipo, it) {
     sh.getRange(linha, 1, 1, 7).setValues([[it.descricao || '', it.categoria || '', num_(it.valor), Number(it.n) || 1, paraData_(it.inicio) || new Date(), it.forma || '', it.quem || '']]);
     sh.getRange(linha, 10).setValue(id);
     sh.getRange(linha, 3).setNumberFormat('"R$" #,##0.00'); sh.getRange(linha, 5).setNumberFormat('mm/yyyy');
+  } else if (tipo === 'separado') {
+    sh.getRange(linha, 1, 1, 6).setValues([[paraData_(it.mes) || new Date(), PARA_[it.para] || it.para || '', num_(it.valor), it.quem || '', it.descricao || '', id]]);
+    sh.getRange(linha, 1).setNumberFormat('mm/yyyy'); sh.getRange(linha, 3).setNumberFormat('"R$" #,##0.00');
   } else {
     sh.getRange(linha, 1, 1, 6).setValues([[paraData_(it.mes) || new Date(), it.quem || 'Casal', it.tipo || 'Renda extra', num_(it.valor), it.descricao || '', id]]);
     sh.getRange(linha, 1).setNumberFormat('mm/yyyy'); sh.getRange(linha, 4).setNumberFormat('"R$" #,##0.00');
@@ -145,7 +160,8 @@ function salvar_(tipo, it) {
   return id;
 }
 function apagar_(tipo, id) {
-  const t = TAB[tipo], sh = aba_(t.aba), last = ultimaLinha_(sh);
+  const t = TAB[tipo], sh = aba_(t.aba); if (!sh) return false;
+  const last = ultimaLinha_(sh);
   if (last < 2) return false;
   const ids = sh.getRange(2, t.idCol, last - 1, 1).getValues();
   const i = ids.findIndex(r => String(r[0]) === String(id));
@@ -343,6 +359,7 @@ function configurar() {
   aba_('Lançamentos').getRange('H1:K1').setValues([['ID', 'Comprovante', 'Criado por', 'Criado em']]);
   aba_('Parcelas').getRange('J1').setValue('ID');
   aba_('Entradas').getRange('F1').setValue('ID');
+  abaSeparado_();
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'avisosDiarios').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('avisosDiarios').timeBased().everyDays(1).atHour(9).inTimezone(TZ).create();
   linhas_('gasto'); linhas_('parcela'); linhas_('entrada');   // dá ID para o que ainda não tem

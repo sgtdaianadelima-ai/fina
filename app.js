@@ -1,6 +1,6 @@
 
 /* ---------- ícones ---------- */
-const VERSAO_APP = 14;   // igual ao número do sw.js
+const VERSAO_APP = 15;   // igual ao número do sw.js
 const I = {
   olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
   olhoFechado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
@@ -57,7 +57,7 @@ const CAT_COLORS = ["#0E7A57","#C98A1B","#3D6FB6","#B24C7C","#6A5ACD","#2E8B8B",
 const S = {
   tab: ["inicio","gastos","assistente","metas","ajustes"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio",
   mes: ymOf(new Date()),
-  config: null, gastos: [], parcelas: [], entradas: [],
+  config: null, gastos: [], parcelas: [], entradas: [], separados: [],
   loaded: {config:false, gastos:false, parcelas:false, entradas:false},
   listSeg: "gastos", fCat: "", fQuem: "",
   chat: [],
@@ -104,6 +104,8 @@ function resumoFontes(k){ const todas = fontes(), sim = todas.filter(f => marcad
 function dobra(id, titulo, conteudo){ return `<details class="dobra" data-dobra="${id}" ${S.dobras?.[id] ? "open" : ""}><summary><span>${esc(titulo)}</span><svg class="seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="dobra-in">${conteudo}</div></details>`; }
 document.addEventListener("toggle", ev => { const d = ev.target; if (d.dataset?.dobra){ S.dobras = {...(S.dobras||{}), [d.dataset.dobra]: d.open}; } }, true);
 const formas = () => [...cfg().cartoes.map(c=>c.nome), ...PAY_FIXED];
+const listaDe = k => ({gasto:S.gastos, parcela:S.parcelas, entrada:S.entradas, separado:S.separados})[k] || [];
+const nomeMeta = k => (METAS.find(([x])=>x===k)||[k,k])[1];
 const catNames = () => cfg().categorias.map(c=>c.nome);
 const catColor = n => CAT_COLORS[Math.max(0,catNames().indexOf(n)) % CAT_COLORS.length];
 
@@ -131,6 +133,8 @@ function month(ym){
   for (const [k] of METAS) base[k] = entradas.filter(e => marcado(k, fonteKey(e))).reduce((s,e)=>s+num(e.valor),0);
   const sep = {dizimo: base.dizimo*num(c.metas.dizimo), reserva: base.reserva*num(c.metas.reserva), investimentos: base.investimentos*num(c.metas.investimentos)};
   const separado = sep.dizimo+sep.reserva+sep.investimentos;
+  const registros = S.separados.filter(x => x.mes === ym);
+  const feito = Object.fromEntries(METAS.map(([k]) => [k, registros.filter(x=>x.para===k).reduce((s,x)=>s+num(x.valor),0)]));
   const fixas = c.fixas.reduce((s,f)=>s+num(f.valor),0);
   const dia = gastos.reduce((s,g)=>s+num(g.valor),0);
   const parc = parcelas.reduce((s,p)=>s+num(p.valor),0);
@@ -142,7 +146,7 @@ function month(ym){
   });
   const pessoas = {};
   for (const e of entradas) pessoas[e.quem||"Casal"] = (pessoas[e.quem||"Casal"]||0) + num(e.valor);
-  return {gastos, parcelas, entradas, entrou, base, sep, separado, fixas, dia, parc, ainda, cats, pessoas};
+  return {gastos, parcelas, entradas, entrou, base, sep, separado, registros, feito, fixas, dia, parc, ainda, cats, pessoas};
 }
 
 
@@ -320,9 +324,9 @@ function renderInicio(){
     <div class="wrap" style="gap:16px">
       ${on("separado")?`<section class="card"><div class="head"><h2>Separado antes de gastar</h2></div>
         <div class="split num">
-          <div class="line"><span>Dízimo / doação · ${Math.round(num(c.metas.dizimo)*100)}%${baseEscolhida("dizimo") ? ` <small class="muted">de ${mv(M.base.dizimo)}</small>` : ""}</span><b>${mv(M.sep.dizimo)}</b></div>
-          <div class="line"><span>Reserva de emergência · ${Math.round(num(c.metas.reserva)*100)}%${baseEscolhida("reserva") ? ` <small class="muted">de ${mv(M.base.reserva)}</small>` : ""}</span><b>${mv(M.sep.reserva)}</b></div>
-          <div class="line"><span>Investimentos · ${Math.round(num(c.metas.investimentos)*100)}%${baseEscolhida("investimentos") ? ` <small class="muted">de ${mv(M.base.investimentos)}</small>` : ""}</span><b>${mv(M.sep.investimentos)}</b></div>
+          <div class="line"><span>Dízimo / doação · ${Math.round(num(c.metas.dizimo)*100)}%${baseEscolhida("dizimo") ? ` <small class="muted">de ${mv(M.base.dizimo)}</small>` : ""}</span><b>${mv(M.sep.dizimo)}${M.feito.dizimo ? `<small class="muted feito-mini">feito ${mv(M.feito.dizimo)}</small>` : ""}</b></div>
+          <div class="line"><span>Reserva de emergência · ${Math.round(num(c.metas.reserva)*100)}%${baseEscolhida("reserva") ? ` <small class="muted">de ${mv(M.base.reserva)}</small>` : ""}</span><b>${mv(M.sep.reserva)}${M.feito.reserva ? `<small class="muted feito-mini">feito ${mv(M.feito.reserva)}</small>` : ""}</b></div>
+          <div class="line"><span>Investimentos · ${Math.round(num(c.metas.investimentos)*100)}%${baseEscolhida("investimentos") ? ` <small class="muted">de ${mv(M.base.investimentos)}</small>` : ""}</span><b>${mv(M.sep.investimentos)}${M.feito.investimentos ? `<small class="muted feito-mini">feito ${mv(M.feito.investimentos)}</small>` : ""}</b></div>
         </div></section>`:""}
       ${on("reserva")?`<section class="card"><div class="head"><h2>Reserva de emergência</h2><span class="sub">meta de ${esc(c.reserva.meses)} meses</span></div>
         <div class="split num"><div class="line"><span>${saldoRes ? "Guardado" : "Saldo ainda não informado"}</span><b>${saldoRes?mv(saldoRes):"—"} / ${mv(metaReserva)}</b></div>
@@ -361,8 +365,8 @@ function renderGastos(){
   <section class="card">${body}</section>`;
 }
 function itemRow(kind, o, title, sub, valor, income){
-  const letter = (kind==="entrada" ? (o.quem||"C") : (o.categoria||"?"))[0];
-  const col = kind==="entrada" ? "var(--accent)" : catColor(o.categoria);
+  const letter = (kind==="entrada" ? (o.quem||"C") : kind==="separado" ? nomeMeta(o.para) : (o.categoria||"?"))[0];
+  const col = kind==="entrada" || kind==="separado" ? "var(--accent)" : catColor(o.categoria);
   return `<button class="item" data-edit="${kind}" data-id="${esc(o.id)}"><span class="dot" style="background:color-mix(in srgb, ${col} 18%, transparent);color:${col}">${esc(letter)}</span><span class="t"><b>${esc(title||"Sem descrição")}</b><span>${esc(sub)}</span></span><span class="v num ${num(valor)<0||income?"neg":""}">${income?"+":""}${money(valor)}</span></button>`;
 }
 
@@ -394,6 +398,13 @@ function renderMetas(){
           <p class="sub num">${Math.round(num(c.metas[k])*100)}% de ${money0(M.base[k])} = <b>${money0(M.sep[k])}</b> em ${esc(mLabel(S.mes).split(" ")[0])}</p></div>`).join("")}
         <p class="sub">Total separado em ${esc(mLabel(S.mes))}: <b>${money(M.separado)}</b> (entrou ${money(M.entrou)}).</p>
         <button class="btn" data-save="metas">Salvar porcentagens</button>
+      </div></section>
+    <section class="card"><div class="head"><h2>Feito de verdade</h2><span class="sub">${esc(mLabel(S.mes))}</span></div>
+      <div class="form">
+        <div class="split num">${METAS.map(([k,t]) => { const pl = M.sep[k], fe = M.feito[k], ok = pl > 0 && fe >= pl - 0.5;
+          return `<div class="feito-linha"><div class="line"><span>${t}</span><b>${money0(fe)} <span class="muted">de ${money0(pl)}</span></b></div><div class="bar"><i class="${ok?"":"warn"}" style="width:${pl?Math.min(100,fe/pl*100).toFixed(1):0}%"></i></div></div>`; }).join("")}</div>
+        ${M.registros.length ? `<div>${[...M.registros].reverse().map(x => itemRow("separado", x, nomeMeta(x.para), `${x.quem||"Casal"}${x.descricao?" · "+x.descricao:""}`, x.valor)).join("")}</div>` : `<p class="sub">Nada registrado em ${esc(mLabel(S.mes).split(" ")[0])} ainda. Quando der o dízimo, guardar na reserva ou investir, registre aqui ou fale com a ${esc(c.nomeAssistente)}.</p>`}
+        <button class="btn" data-new="separado">${I.plus}Registrar o que foi feito</button>
       </div></section>
     <section class="card"><div class="head"><h2>Reserva de emergência</h2></div>
       <div class="form">
@@ -498,7 +509,12 @@ function proposalHTML(m, i){
   const rows = m.items.map((it,j)=>{
     const dup = !m.saved && isDuplicate(it);
     const id = `p${i}-${j}`;
-    const common = it.tipo==="entrada" ? `
+    const common = it.tipo==="separado" ? `
+      <label class="c2">Para quê<select id="${id}-para">${METAS.map(([k,t])=>`<option value="${k}" ${it.para===k?"selected":""}>${t}</option>`).join("")}</select></label>
+      <label class="c2">Valor<input id="${id}-valor" inputmode="decimal" value="${esc(String(it.valor).replace(".",","))}"></label>
+      <label class="c2">Do dinheiro de<input type="month" id="${id}-mes" value="${esc(it.mes||S.mes)}"></label>
+      <label class="c2">Quem<select id="${id}-quem">${opts([...c.pessoas,"Casal"], it.quem)}</select></label>
+      <label class="c3">Descrição<input id="${id}-descricao" value="${esc(it.descricao)}"></label>` : it.tipo==="entrada" ? `
       <label class="c2">Mês<input type="month" id="${id}-mes" value="${esc(it.mes||S.mes)}"></label>
       <label class="c2">Valor<input id="${id}-valor" inputmode="decimal" value="${esc(String(it.valor).replace(".",","))}"></label>
       <label class="c2">Quem<select id="${id}-quem">${opts([...c.pessoas,"Casal"], it.quem)}</select></label>
@@ -511,7 +527,7 @@ function proposalHTML(m, i){
       <label class="c2">Quem<select id="${id}-quem">${opts([...c.pessoas,"Casal"], it.quem)}</select></label>
       <label class="c2">Descrição<input id="${id}-descricao" value="${esc(it.descricao)}"></label>
       ${it.tipo==="parcela"?`<label class="c2">Parcela atual<input type="number" min="1" id="${id}-parcela_atual" value="${esc(it.parcela_atual||1)}"></label><label class="c2">Total de parcelas<input type="number" min="1" id="${id}-total_parcelas" value="${esc(it.total_parcelas||1)}"></label><label class="c2">1ª parcela em<input type="month" id="${id}-inicio" value="${esc(it.inicio||inicioPadrao(it))}"></label>`:""}`;
-    return `<div class="prop ${it.skip?"off":""}"><div class="kind"><span>${it.tipo==="gasto"?"Gasto":it.tipo==="parcela"?"Compra parcelada":"Entrada de dinheiro"}</span>${m.saved?"":`<label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2)"><input type="checkbox" data-skip="${i}-${j}" ${it.skip?"":"checked"} style="width:auto"> salvar</label>`}</div>${common}${dup?`<div class="warnline">Parece que já está lançado. Desmarque se for repetido.</div>`:""}</div>`;
+    return `<div class="prop ${it.skip?"off":""}"><div class="kind"><span>${it.tipo==="gasto"?"Gasto":it.tipo==="parcela"?"Compra parcelada":it.tipo==="separado"?"Dízimo, reserva ou investimento":"Entrada de dinheiro"}</span>${m.saved?"":`<label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2)"><input type="checkbox" data-skip="${i}-${j}" ${it.skip?"":"checked"} style="width:auto"> salvar</label>`}</div>${common}${dup?`<div class="warnline">Parece que já está lançado. Desmarque se for repetido.</div>`:""}</div>`;
   }).join("");
   return `<div class="proposal">${rows}${m.saved?"":`<div class="toolbar"><button class="btn ghost" data-discard="${i}">Descartar</button><button class="btn" data-confirm="${i}">Salvar ${m.items.filter(x=>!x.skip).length} ${m.items.filter(x=>!x.skip).length===1?"item":"itens"}</button></div>`}</div>`;
 }
@@ -523,6 +539,7 @@ function isDuplicate(it){
   const v = num(it.valor);
   if (it.tipo==="gasto") return S.gastos.some(g => g.data===it.data && Math.abs(num(g.valor)-v)<0.01 && (!it.forma || g.forma===it.forma));
   if (it.tipo==="parcela") return S.parcelas.some(p => Math.abs(num(p.valor)-v)<0.01 && Number(p.n)===Number(it.total_parcelas) && (!it.forma || p.forma===it.forma));
+  if (it.tipo==="separado") return S.separados.some(e => e.mes===it.mes && e.para===it.para && Math.abs(num(e.valor)-v)<0.01);
   return S.entradas.some(e => e.mes===it.mes && Math.abs(num(e.valor)-v)<0.01 && (e.quem||"")===(it.quem||""));
 }
 
@@ -539,6 +556,7 @@ function buildPrompt(text, nImgs){
     gastos_do_mes: M.gastos.slice(-220).map(g=>[g.data, +num(g.valor).toFixed(2), g.categoria, g.quem||"", g.forma||"", g.descricao||""]),
     parcelas_ativas: M.parcelas.map(p=>[p.descricao, +num(p.valor).toFixed(2), `${parcelaInfo(p,S.mes)}/${p.n}`, "termina "+fimParcela(p), p.forma||"", p.categoria]),
     reserva: {saldo: num(c.reserva.saldo), meta_meses: c.reserva.meses},
+    separar_no_mes: {planejado: {dizimo:+M.sep.dizimo.toFixed(2), reserva:+M.sep.reserva.toFixed(2), investimentos:+M.sep.investimentos.toFixed(2)}, feito: M.feito},
   };
   const hist = S.chat.slice(-8).map(m => `${m.role==="user"?"Usuária":"Assistente"}: ${m.text||"(prints)"}`).join("\n");
   return `Você é ${c.nomeAssistente}, a assistente de finanças da família de ${c.pessoas.join(" e ")}. Fale em português do Brasil, de forma curta, clara e gentil, como alguém da família que entende de dinheiro. Valores sempre em reais (R$ 1.234,56).
@@ -557,7 +575,7 @@ Regras de extração:
 - categoria: exatamente um nome da lista. forma: exatamente um nome da lista; reconheça o cartão pelo nome ou final; se não der, "". quem: use regras_de_quem; se não der, "".
 - descricao: nome legível da loja ou do motivo (ex.: "Atacadão", "Uber", "Drogaria Raia").
 - Dinheiro que entrou (salário, Pix recebido, renda extra, reembolso, BlaBlaCar): tipo "entrada", com mes AAAA-MM, quem (${c.pessoas.join(", ")} ou "Casal") e tipo_entrada (${ENTRY_TYPES.join(", ")}).
-- Dízimo, oferta e aplicação em investimento NÃO são gastos: o app já separa esses valores. Não crie item; explique isso.
+- Dízimo, oferta, dinheiro guardado na reserva de emergência e aplicação em investimento NÃO são gastos: use tipo "separado", com para ("dizimo", "reserva" ou "investimentos"), valor, mes AAAA-MM (de qual mês é o dinheiro; se não disser, use mes_em_foco; se disser "do mês passado", o mês anterior), quem e descricao.
 - Nunca invente valores. Se algo estiver ilegível, diga na resposta.
 - Nunca diga que salvou: a usuária ainda vai conferir e tocar em Salvar.
 
@@ -566,7 +584,8 @@ Responda SOMENTE com JSON neste formato:
  "itens": [
   {"tipo":"gasto","data":"2026-10-17","valor":191.46,"categoria":"Mercado","quem":"Gustavo","forma":"Porto 7115","descricao":"Atacadão"},
   {"tipo":"parcela","data":"2026-10-11","valor":64.78,"parcela_atual":1,"total_parcelas":7,"categoria":"Compras","quem":"","forma":"Itaú Platinum 8018","descricao":"Shopee"},
-  {"tipo":"entrada","mes":"2026-10","valor":212,"quem":"Daiana","tipo_entrada":"Renda extra","descricao":"BlaBlaCar"}
+  {"tipo":"entrada","mes":"2026-10","valor":212,"quem":"Daiana","tipo_entrada":"Renda extra","descricao":"BlaBlaCar"},
+  {"tipo":"separado","mes":"2026-10","valor":1000,"para":"dizimo","quem":"Casal","descricao":"Dízimo"}
  ]}
 Se não houver itens, use "itens": [].
 
@@ -674,7 +693,7 @@ async function rodarIA(text, anexos, prompt, files, daFila){
     const texto = await perguntarIA(prompt, anexos, S.ctl.signal);
     const out = lerJSON(texto);
     if (!out) throw {code:"invalid_json"};
-    const items = Array.isArray(out?.itens) ? out.itens.filter(x=>x && ["gasto","parcela","entrada"].includes(x.tipo)).map(normItem) : [];
+    const items = Array.isArray(out?.itens) ? out.itens.filter(x=>x && ["gasto","parcela","entrada","separado"].includes(x.tipo)).map(normItem) : [];
     const msg = {role:"assistant", text: (daFila ? "(Li o que você mandou sem internet.) " : "") + String(out?.resposta || (items.length?`Encontrei ${items.length} itens. Confira e toque em Salvar.`:"Não encontrei nada para lançar.")), items};
     if (items.length && files?.length) msg._f = files.filter(f => f.type !== "application/pdf"); // prints guardados ao salvar
     S.chat.push(msg);
@@ -697,9 +716,10 @@ async function rodarIA(text, anexos, prompt, files, daFila){
 }
 function normItem(x){
   const it = {...x, valor: num(x.valor), descricao: String(x.descricao||"").slice(0,120)};
-  if (it.tipo!=="entrada"){ it.data = /^\d{4}-\d{2}-\d{2}$/.test(it.data||"") ? it.data : today(); if (!catNames().includes(it.categoria)) it.categoria = catNames().includes("Serviços/Outros") ? "Serviços/Outros" : (catNames()[0]||""); if (it.forma && !formas().includes(it.forma)) it.forma = ""; }
+  if (it.tipo!=="entrada" && it.tipo!=="separado"){ it.data = /^\d{4}-\d{2}-\d{2}$/.test(it.data||"") ? it.data : today(); if (!catNames().includes(it.categoria)) it.categoria = catNames().includes("Serviços/Outros") ? "Serviços/Outros" : (catNames()[0]||""); if (it.forma && !formas().includes(it.forma)) it.forma = ""; }
   if (it.tipo==="parcela"){ it.parcela_atual = Math.max(1, parseInt(it.parcela_atual)||1); it.total_parcelas = Math.max(it.parcela_atual, parseInt(it.total_parcelas)||1); it.inicio = inicioPadrao(it); }
   if (it.tipo==="entrada"){ it.mes = /^\d{4}-\d{2}$/.test(it.mes||"") ? it.mes : S.mes; if (!ENTRY_TYPES.includes(it.tipo_entrada)) it.tipo_entrada = "Renda extra"; }
+  if (it.tipo==="separado"){ it.mes = /^\d{4}-\d{2}$/.test(it.mes||"") ? it.mes : S.mes; if (!METAS.some(([k])=>k===it.para)) it.para = "dizimo"; it.quem = it.quem || "Casal"; }
   it.skip = false;
   return it;
 }
@@ -737,7 +757,7 @@ function readProposal(i){
   const m = S.chat[i];
   m.items.forEach((it,j)=>{
     const id = `p${i}-${j}`;
-    for (const f of ["data","valor","categoria","forma","quem","descricao","parcela_atual","total_parcelas","inicio","mes","tipo_entrada"]){
+    for (const f of ["data","valor","categoria","forma","quem","descricao","parcela_atual","total_parcelas","inicio","mes","tipo_entrada","para"]){
       const el = document.getElementById(`${id}-${f}`); if (el) it[f] = f==="valor" ? num(el.value) : el.value;
     }
   });
@@ -759,6 +779,7 @@ async function confirmItems(i){
   for (const it of sel){
     if (it.tipo==="gasto") mudar("salvar","gasto",{...base, data:it.data, valor:num(it.valor), categoria:it.categoria, quem:it.quem||"", forma:it.forma||"", descricao:it.descricao||""});
     else if (it.tipo==="parcela") mudar("salvar","parcela",{descricao:it.descricao||"", categoria:it.categoria, valor:num(it.valor), n:Number(it.total_parcelas)||1, inicio:it.inicio||inicioPadrao(it), forma:it.forma||"", quem:it.quem||""});
+    else if (it.tipo==="separado") mudar("salvar","separado",{mes:it.mes, para:it.para, quem:it.quem||"Casal", valor:num(it.valor), descricao:it.descricao||""});
     else mudar("salvar","entrada",{mes:it.mes, quem:it.quem||"Casal", tipo:it.tipo_entrada||"Renda extra", valor:num(it.valor), descricao:it.descricao||""});
   }
   m.saved = true; saveChat();
@@ -798,12 +819,12 @@ function startMic(){
 }
 
 /* ---------- modal de edição ---------- */
-function openEditor(kind, id){
+function openEditor(kind, id, para){
   const c = cfg();
-  const list = kind==="gasto" ? S.gastos : kind==="parcela" ? S.parcelas : S.entradas;
-  const o = id ? list.find(x=>x.id===id) : (kind==="gasto" ? {data:today(), quem:S.me} : kind==="parcela" ? {inicio:S.mes, n:2, quem:S.me} : {mes:S.mes, quem:S.me, tipo:"Renda extra"});
+  const list = listaDe(kind);
+  const o = id ? list.find(x=>x.id===id) : (kind==="gasto" ? {data:today(), quem:S.me} : kind==="parcela" ? {inicio:S.mes, n:2, quem:S.me} : kind==="separado" ? {mes:S.mes, quem:"Casal", para:para||"dizimo"} : {mes:S.mes, quem:S.me, tipo:"Renda extra"});
   if (!o) return;
-  const title = {gasto:"Gasto", parcela:"Compra parcelada", entrada:"Entrada de dinheiro"}[kind];
+  const title = {gasto:"Gasto", parcela:"Compra parcelada", entrada:"Entrada de dinheiro", separado:"Dízimo, reserva ou investimento feito"}[kind];
   let fields = "";
   if (kind==="gasto") fields = `
     <label>Data<input type="date" id="e-data" value="${esc(o.data)}"></label>
@@ -820,6 +841,13 @@ function openEditor(kind, id){
     <label>Categoria<select id="e-categoria">${opts(catNames(), o.categoria)}</select></label>
     <label>Forma de pagamento<select id="e-forma">${opts(formas(), o.forma)}</select></label>
     <label>Quem<select id="e-quem">${opts([...c.pessoas,"Casal"], o.quem)}</select></label>`;
+  else if (kind==="separado") fields = `
+    <label>Para quê<select id="e-para">${METAS.map(([k,t])=>`<option value="${k}" ${o.para===k?"selected":""}>${t}</option>`).join("")}</select></label>
+    <label>Valor (R$)<input id="e-valor" inputmode="decimal" value="${o.valor!=null?String(o.valor).replace(".",","):""}"></label>
+    <label>Do dinheiro de<input type="month" id="e-mes" value="${esc(o.mes)}"></label>
+    <label>Quem<select id="e-quem">${opts([...c.pessoas,"Casal"], o.quem)}</select></label>
+    <label class="full">Descrição<input id="e-descricao" value="${esc(o.descricao)}" placeholder="ex.: dízimo na igreja, Caixinha Nubank"></label>
+    <p class="sub full">Guardou na reserva? O saldo da reserva sobe junto.</p>`;
   else fields = `
     <label>Mês<input type="month" id="e-mes" value="${esc(o.mes)}"></label>
     <label>Valor (R$)<input id="e-valor" inputmode="decimal" value="${o.valor!=null?String(o.valor).replace(".",","):""}"></label>
@@ -839,9 +867,10 @@ async function storeEdit(kind, id){
   let body;
   if (kind==="gasto") body = {data:g("data"), valor:num(g("valor")), categoria:g("categoria"), forma:g("forma"), quem:g("quem"), descricao:g("descricao")};
   else if (kind==="parcela") body = {descricao:g("descricao"), valor:num(g("valor")), n:Number(g("n"))||1, inicio:g("inicio"), categoria:g("categoria"), forma:g("forma"), quem:g("quem")};
+  else if (kind==="separado") body = {mes:g("mes"), para:g("para"), valor:num(g("valor")), quem:g("quem")||"Casal", descricao:g("descricao")};
   else body = {mes:g("mes"), valor:num(g("valor")), quem:g("quem")||"Casal", tipo:g("tipo"), descricao:g("descricao")};
   if (!body.valor){ toast("Informe o valor."); return; }
-  const list = kind==="gasto" ? S.gastos : kind==="parcela" ? S.parcelas : S.entradas;
+  const list = listaDe(kind);
   const old = id ? list.find(x=>x.id===id) : null;
   mudar("salvar", kind, id ? {...old, ...body, id} : {...body, criadoPor:S.me||"", criadoEm:new Date().toISOString()});
   $("#modalRoot").innerHTML = ""; toast(navigator.onLine ? "Salvo" : "Salvo no celular. Sobe quando a internet voltar.");
@@ -901,7 +930,7 @@ document.addEventListener("click", async ev => {
   if (d.m){ S.mes = addM(S.mes, Number(d.m)); return render(); }
   if (d.seg){ S.listSeg = d.seg; return render(); }
   if (d.ajtab){ S.ajTab = d.ajtab; ls.set("ajTab", d.ajtab); render(); return window.scrollTo(0,0); }
-  if (d.new) return openEditor(d.new);
+  if (d.new) return openEditor(d.new, null, d.para);
   if (d.edit) return openEditor(d.edit, d.id);
   if (d.close && (t.classList.contains("btn") || ev.target === t)) { $("#modalRoot").innerHTML = ""; return; }
   if (d.store){ const [k,id] = d.store.split(":"); return storeEdit(k, id); }
@@ -1009,21 +1038,21 @@ function imgBase64(file, max, q){
 function aplicarDados(d){
   const app = d.app || {};
   S.config = {...DEFAULT_CONFIG, ...d.config, nomeAssistente: app.nomeAssistente || "Fina", regrasQuem: app.regrasQuem ?? DEFAULT_REGRAS, pessoas: app.pessoas || ["Daiana","Gustavo"], perfis: app.perfis || {}, bases: app.bases || {}};
-  S.gastos = d.gastos || []; S.parcelas = d.parcelas || []; S.entradas = d.entradas || [];
+  S.gastos = d.gastos || []; S.parcelas = d.parcelas || []; S.entradas = d.entradas || []; S.separados = d.separados || S.separados || [];
   S.atualizado = d.atualizado || ""; if (d.temIA !== undefined) S.temIA = d.temIA;
   for (const op of S.fila) aplicarLocal(op);       // o que ainda não subiu continua aparecendo
   Object.keys(S.loaded).forEach(k => S.loaded[k] = true);
 }
 function guardarLocal(){
   const {perfis, nomeAssistente, regrasQuem, pessoas, bases, ...config} = cfg();
-  ls.set("dados", {config, app:{perfis, nomeAssistente, regrasQuem, pessoas, bases}, gastos:S.gastos, parcelas:S.parcelas, entradas:S.entradas, atualizado:S.atualizado});
+  ls.set("dados", {config, app:{perfis, nomeAssistente, regrasQuem, pessoas, bases}, gastos:S.gastos, parcelas:S.parcelas, entradas:S.entradas, separados:S.separados, atualizado:S.atualizado});
   ls.set("fila", S.fila);
 }
 const juntar = (a, b) => { const o = {...(a||{})}; for (const k of Object.keys(b||{})) o[k] = (b[k] && typeof b[k]==="object" && !Array.isArray(b[k]) && a && a[k] && typeof a[k]==="object") ? juntar(a[k], b[k]) : b[k]; return o; };
 function aplicarLocal(op){
   if (op.a === "app" || op.a === "config"){ S.config = juntar(S.config || DEFAULT_CONFIG, op.app || op.config); return; }
   if (op.a !== "salvar" && op.a !== "apagar") return;
-  const key = {gasto:"gastos", parcela:"parcelas", entrada:"entradas"}[op.tipo];
+  const key = {gasto:"gastos", parcela:"parcelas", entrada:"entradas", separado:"separados"}[op.tipo];
   const id = op.a === "salvar" ? op.item.id : op.id;
   const list = S[key].filter(x => x.id !== id);
   if (op.a === "salvar") list.push({...op.item});
@@ -1034,6 +1063,11 @@ function enfileirar(op, chave){
   S.fila.push({...op, _k: chave || ""});
 }
 function mudar(acao, tipo, item){
+  if (tipo === "separado"){                       // guardou ou tirou da reserva: o saldo da reserva acompanha
+    const antes = S.separados.find(x => x.id === item.id);
+    const delta = (acao === "salvar" && item.para === "reserva" ? num(item.valor) : 0) - (antes?.para === "reserva" ? num(antes.valor) : 0);
+    if (delta){ const r = {...cfg().reserva, saldo: Math.round((num(cfg().reserva.saldo) + delta)*100)/100, atualizado: today()}; S.config = {...cfg(), reserva:r}; enfileirar({a:"config", config:{reserva:r}}, "reserva-saldo"); }
+  }
   if (acao === "salvar"){
     const it = {...item, id: item.id || ("tmp-" + uid())};
     const op = {a:"salvar", tipo, item: it};
@@ -1075,7 +1109,7 @@ async function carregar(){
 function renderSeguro(){ if (S.tab === "assistente" && document.activeElement?.closest?.(".composer")) return; if ($("#modalRoot").innerHTML) return; render(); }
 function sair(msg){
   ls.set("codigo", ""); try{ localStorage.removeItem("fina:dados"); }catch{}
-  S.config = null; S.gastos = []; S.parcelas = []; S.entradas = []; Object.keys(S.loaded).forEach(k => S.loaded[k] = false);
+  S.config = null; S.gastos = []; S.parcelas = []; S.entradas = []; S.separados = []; Object.keys(S.loaded).forEach(k => S.loaded[k] = false);
   S.gateMsg = msg || ""; render();
 }
 function renderGate(){

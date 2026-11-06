@@ -266,6 +266,13 @@ function doPost_(e) {
   if (q.a === 'ping') return json_({ok: true, fina: true});
   if (!confere_(q.c)) return json_({ok: false, erro: 'codigo'});
   if (q.a === 'ler') return json_(dados_());
+  if (q.a === 'senha') {                // a família escolhe a própria senha (Ajustes > Dados)
+    const n = String(q.nova || '').trim().toLowerCase();
+    if (n.length < 6) return json_({ok: false, erro: 'curta'});
+    props_().setProperty('CODIGO_FAMILIA', n);
+    return json_({ok: true});
+  }
+  if (q.a === 'taxas') return json_(taxas_());
   if (q.a === 'chaveIA') return json_({ok: true, chave: props_().getProperty('GEMINI_KEY') || ''});   // o app chama o Gemini direto (mais rápido)
   if (q.a === 'ia') return json_(ia_(q.prompt, q.imagens));
   if (q.a === 'foto') return json_(Object.assign({ok: true}, salvarFoto_(q.base64, q.mime, q.nome)));
@@ -290,6 +297,20 @@ function doPost_(e) {
     return json_({ok: false, erro: 'acao'});
   } catch (err) { return json_({ok: false, erro: String(err)}); }
   finally { lock.releaseLock(); }
+}
+
+// ---------- taxas do dia (Banco Central, grátis e oficial) ----------
+function taxas_() {
+  const p = props_(); const salvo = p.getProperty('TAXAS');
+  if (salvo) { const t = JSON.parse(salvo); if (Date.now() - t.quando < 6 * 36e5) return Object.assign({ok: true}, t); }
+  const ult = cod => { const r = UrlFetchApp.fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.' + cod + '/dados/ultimos/1?formato=json', {muteHttpExceptions: true});
+    const j = JSON.parse(r.getContentText()); return {v: num_(j[0].valor), d: j[0].data}; };
+  try {
+    const sel = ult(432), cdi = ult(4389), ipca = ult(13522);
+    const t = {selic: sel.v, cdi: cdi.v, ipca12: ipca.v, data: sel.d, quando: Date.now()};
+    p.setProperty('TAXAS', JSON.stringify(t));
+    return Object.assign({ok: true}, t);
+  } catch (e) { return salvo ? Object.assign({ok: true}, JSON.parse(salvo)) : {ok: false, erro: 'bcb'}; }
 }
 
 // ---------- avisos no celular (app grátis ntfy) ----------
@@ -346,6 +367,11 @@ function avisosDiarios() {
       if (passou.length || quase.length)
         avisar_(av.topico, passou.length ? 'Orçamento: ' + passou.length + ' categoria(s) passaram' : 'Orçamento chegando no limite',
           (passou.length ? 'Passaram: ' + passou.join(', ') + '. ' : '') + (quase.length ? 'Em 80%: ' + quase.join(', ') + '.' : ''), passou.length ? 'warning' : 'eyes');
+    }
+    if (av.contas !== false) {          // conta fixa que vence amanhã e ainda não foi marcada como paga
+      const dias = app.fixasDia || {}, pagos = (app.pagos || {})[ym] || {};
+      const vence = D.config.fixas.filter(f => Number(dias[f.nome]) === amanha && !pagos[f.nome]).map(f => f.nome + ' (' + BRL(f.valor) + ')');
+      if (vence.length) avisar_(av.topico, 'Conta vence amanhã', vence.join(', ') + '. Depois marque como paga na Fina.', 'receipt');
     }
     if (av.semanal !== false && hoje.getDay() === 0)
       avisar_(av.topico, 'Resumo da semana', (R.ainda < 0 ? 'O mês passou do limite em ' : 'Ainda dá pra gastar ') + BRL(Math.abs(R.ainda)) + ' este mês.', 'bar_chart');

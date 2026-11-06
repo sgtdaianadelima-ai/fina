@@ -7,12 +7,12 @@ App (PWA) de finanças da Daiana e do Gustavo. No ar em https://sgtdaianadelima-
 - Sempre mostrar antes de mudar valores da planilha que não foram pedidos.
 
 ## Este repositório é PÚBLICO
-Nada de senha, código da família, chave do Gemini, valores ou nomes de lojas aqui. Os dados ficam só na planilha FAMÍLIA ASSIS (Google Drive). As chaves ficam nas Propriedades do script do Google: CODIGO_FAMILIA, GEMINI_KEY.
+Nada de senha, código da família, chave do Gemini, valores ou nomes de lojas aqui. Os dados ficam só na planilha FAMÍLIA ASSIS (Google Drive). As chaves ficam nas Propriedades do script do Google: CODIGO_FAMILIA (a "senha da família", a família troca em Ajustes > Dados), GEMINI_KEY. Investir é educativo: nunca indicar banco, corretora, fundo ou ação específicos (consultoria é regulada pela CVM).
 
 ## Como funciona
 - `index.html` + `estilo.css` + `app.js` — o app inteiro (telas Início, Gastos, Fina/assistente, Metas, Ajustes). Funciona offline: guarda os dados no aparelho e uma fila de alterações que sobe quando a internet volta.
 - `robo/Codigo.gs` — cópia do robô do Google Apps Script da planilha (o de verdade fica em Extensões > Apps Script da planilha). `doGet` devolve tudo; `doPost` com `a: "lote"` grava; `a: "ia"` chama o Gemini; `a: "foto"` guarda print na pasta "Fina – Comprovantes"; `avisosDiarios` manda avisos pelo ntfy às 9h.
-- Planilha: abas Lançamentos (ID na coluna H, G é fórmula — nunca escrever em G), Parcelas (ID na J; H e I são fórmulas), Entradas (ID na F), Config (A categorias, D contas fixas, J formas de pagamento, N14 cartões, O3:O5 metas, O8:O10 reserva, R3:V40 de quais entradas sai cada % com caixinhas — Resumo B7:B9 usa essa tabela) Separado (o que foi dado/guardado de verdade: A Mês | B Para quê | C Valor | D Quem | E Descrição | F ID; Resumo C7:C9 soma) e App (A1: JSON com perfis, temas, avatares, avisos).
+- Planilha: abas Lançamentos (ID na coluna H, G é fórmula — nunca escrever em G), Parcelas (ID na J; H e I são fórmulas), Entradas (ID na F), Config (A categorias, D contas fixas, J formas de pagamento, N14 cartões, O3:O5 metas, O8:O10 reserva, R3:V40 de quais entradas sai cada % com caixinhas — Resumo B7:B9 usa essa tabela) Separado (o que foi dado/guardado de verdade: A Mês | B Para quê | C Valor | D Quem | E Descrição | F ID; Resumo C7:C9 soma) e App (A1: JSON com perfis, temas, avatares, avisos, pagos (contas pagas por mês), fixasDia (dia de vencimento), objetivos, perfilInvest, taxas).
 - Compra no cartão conta no mês da fatura: compras a partir do dia de fechamento vão para o mês seguinte.
 - `sw.js` — guarda o app para abrir offline. **Toda mudança: aumentar `VERSAO`.**
 

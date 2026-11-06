@@ -366,3 +366,22 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 .pq input{accent-color:var(--accent)}
 .guia{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px;color:var(--ink-2)}
 .fmes .line{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+/* login de cada pessoa */
+.login{display:grid;gap:10px;justify-items:center;max-width:340px;margin:0 auto}
+.login input{width:100%}
+.login .btn{width:100%}
+/* saúde do mês */
+.saude{display:grid;gap:8px;margin-bottom:8px}
+.sl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--surface-2)}
+.sl span:first-child{display:grid;gap:2px;min-width:0}
+.sl small{font-size:12px;color:var(--ink-3)}
+.sl .num{font-family:var(--f-display);font-size:20px;font-weight:700}
+.sl.bom .num{color:var(--ok)} .sl.alerta .num{color:var(--gold)} .sl.risco .num{color:var(--bad)}
+/* pedem sua atenção */
+.atencao{display:grid;gap:8px}
+.at{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--surface-2);border-left:4px solid var(--ink-3)}
+.at span{display:grid;gap:2px;min-width:0}
+.at small{font-size:12px;color:var(--ink-2)}
+.at.risco{border-left-color:var(--bad)} .at.alerta{border-left-color:var(--gold)} .at.dado{border-left-color:var(--accent)}
+.at .btn{padding:8px 12px;font-size:13px;flex:none}
+.neg{color:var(--bad)}

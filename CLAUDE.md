@@ -7,7 +7,7 @@ App (PWA) de finanças da Daiana e do Gustavo. No ar em https://sgtdaianadelima-
 - Sempre mostrar antes de mudar valores da planilha que não foram pedidos.
 
 ## Este repositório é PÚBLICO
-Nada de senha, código da família, chave do Gemini, valores ou nomes de lojas aqui. Os dados ficam só na planilha FAMÍLIA ASSIS (Google Drive). As chaves ficam nas Propriedades do script do Google: CODIGO_FAMILIA (a "senha da família", a família troca em Ajustes > Dados), GEMINI_KEY. Investir é educativo: nunca indicar banco, corretora, fundo ou ação específicos (consultoria é regulada pela CVM).
+Nada de senha, código da família, chave do Gemini, valores ou nomes de lojas aqui. Os dados ficam só na planilha FAMÍLIA ASSIS (Google Drive). As chaves ficam nas Propriedades do script do Google: CODIGO_FAMILIA (chave interna; ninguém digita: o robô a devolve quando a pessoa entra com a própria senha — `a:"pessoas"` e `a:"entrarPessoa"`, com limite de 8 tentativas a cada 15 min), GEMINI_KEY. Investir é educativo: nunca indicar banco, corretora, fundo ou ação específicos (consultoria é regulada pela CVM).
 
 ## Como funciona
 - `index.html` + `estilo.css` + `app.js` — o app inteiro (telas Início, Gastos, Fina/assistente, Metas, Ajustes). Funciona offline: guarda os dados no aparelho e uma fila de alterações que sobe quando a internet volta.

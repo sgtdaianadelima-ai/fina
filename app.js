@@ -1,6 +1,6 @@
 
 /* ---------- ícones ---------- */
-const VERSAO_APP = 18;   // igual ao número do sw.js
+const VERSAO_APP = 19;   // igual ao número do sw.js
 const I = {
   olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
   olhoFechado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
@@ -480,13 +480,7 @@ function renderAjustes(){
       <a class="btn ghost" href="manual.html">Abrir o manual</a>
       <button class="btn ghost" data-act="sair">Sair deste aparelho</button>
     </div></section>
-    <section class="card"><div class="head"><h2>Senha da família</h2></div><form class="form" id="senhaForm" autocomplete="on">
-      <p class="sub">Vocês escolhem a senha. Ela vale para os dois: depois de trocar, avise quem usa a Fina para digitar a nova.</p>
-      <input type="text" name="username" autocomplete="username" value="Família Assis" style="display:none" tabindex="-1" aria-hidden="true">
-      <label class="flabel" for="senhaNova">Nova senha (pelo menos 6 letras ou números)</label><input id="senhaNova" type="password" autocomplete="new-password" autocapitalize="none">
-      <label class="flabel" for="senhaNova2">Repita a nova senha</label><input id="senhaNova2" type="password" autocomplete="new-password" autocapitalize="none">
-      <button class="btn" type="submit">Trocar a senha</button>
-    </form></section>
+
 `;
   $("#view").innerHTML = `
   <div class="top"><div class="hello"><small>Personalize</small><h1>Ajustes</h1></div></div>
@@ -1046,6 +1040,9 @@ document.addEventListener("click", async ev => {
   if (d.act==="themeReset") return setLocalTheme({}, true);
   if (d.act==="themeCopy"){ const other = cfg().pessoas.find(n=>n!==S.me); if (!other) return; const tema = cfg().perfis?.[other]?.tema || {}; toast(`Visual de ${other} copiado`); return setLocalTheme(JSON.parse(JSON.stringify(tema)), true); }
   if (d.act==="switchPerson"){ S.desbloqueado = false; S.lockPessoa = ""; applyTheme(); return render(); }
+  if (d.gatequem){ S.gateQuem = d.gatequem; S.gateMsg = ""; tentouAuto = false; return render(); }
+  if (d.act==="gateVoltar"){ S.gateQuem = ""; S.gateFamilia = false; S.gateMsg = ""; return render(); }
+  if (d.act==="gateFamilia"){ S.gateFamilia = true; S.gateMsg = ""; return render(); }
   if (d.act==="voltarPessoas"){ S.lockPessoa = ""; S.loginMsg = ""; S.bioTentado = false; return render(); }
   if (d.act==="bioEntrar") return entrarBio();
   if (d.act==="bioLigar"){ if (!(await bioDisponivel())) return toast("Este aparelho não tem digital ou rosto liberados para o navegador."); return ativarBio(); }
@@ -1820,28 +1817,72 @@ function renderSeguro(){ if (S.tab === "assistente" && document.activeElement?.c
 function sair(msg){
   ls.set("codigo", ""); try{ localStorage.removeItem("fina:dados"); }catch{}
   S.config = null; S.gastos = []; S.parcelas = []; S.entradas = []; S.separados = []; Object.keys(S.loaded).forEach(k => S.loaded[k] = false);
-  S.gateMsg = msg || ""; render();
+  S.gateMsg = msg || ""; S.gateQuem = ""; S.gatePessoas = null; render();
 }
 function renderGate(){
   $("#tabbar").innerHTML = ""; $("#rail").innerHTML = "";
+  if (S.gateFamilia || S.gatePessoas === false) return renderGateFamilia();
+  if (!S.gatePessoas){ $("#view").innerHTML = `<div class="gate"><div class="gate-in">${BOT}<h1>Oi! Eu sou a Fina.</h1><p class="sub">Abrindo…</p></div></div>`;
+    api({a:"pessoas"}).then(r => { S.gatePessoas = r.ok && r.pessoas?.length ? r.pessoas : false; render(); }).catch(() => { S.gatePessoas = false; render(); }); return; }
+  const quem = S.gateQuem;
+  if (!quem){
+    $("#view").innerHTML = `<div class="gate"><div class="gate-in">${BOT}<h1>Oi! Quem está usando?</h1><p class="sub">Cada um entra com a própria senha.</p>
+      <div class="people">${S.gatePessoas.map(p => `<button class="person" data-gatequem="${esc(p.nome)}"><span class="av" style="width:76px;height:76px;background:var(--accent)"><span style="font-size:34px">${esc(p.nome[0])}</span></span><b>${esc(p.nome)}</b></button>`).join("")}</div>
+      ${S.gateMsg ? `<p class="sub" style="color:var(--bad)">${esc(S.gateMsg)}</p>` : ""}</div></div>`;
+    return;
+  }
+  const p = S.gatePessoas.find(x => x.nome === quem) || {};
+  if (!p.temSenha){
+    $("#view").innerHTML = `<div class="gate"><div class="gate-in">${BOT}<h1>${esc(quem)} ainda não tem senha</h1>
+      <p class="sub">Crie a senha no aparelho onde a Fina já está aberta: entre como ${esc(quem)} lá, e ela pede para criar. Depois volte aqui.</p>
+      <button class="btn ghost" data-act="gateVoltar" style="width:100%;justify-content:center">Voltar</button>
+      <button class="btn ghost" data-act="gateFamilia" style="width:100%;justify-content:center">Tenho a senha antiga da família</button></div></div>`;
+    return;
+  }
+  $("#view").innerHTML = `<div class="gate"><form class="gate-in" id="gatePessoaForm" autocomplete="on">${BOT}<h1>Oi, ${esc(quem)}!</h1>
+    <p class="sub">Digite a sua senha.</p>
+    <input type="text" name="username" autocomplete="username" value="${esc(quem)}" style="display:none" tabindex="-1" aria-hidden="true">
+    <input id="gateSenha" name="password" type="password" autocomplete="current-password" autocapitalize="none" placeholder="sua senha" aria-label="Senha de ${esc(quem)}">
+    <button class="btn" type="submit" style="width:100%;justify-content:center">Entrar</button>
+    ${S.gateMsg ? `<p class="sub" style="color:var(--bad)">${esc(S.gateMsg)}</p>` : ""}
+    <p class="sub" style="font-size:13px">Quando o navegador perguntar, toque em <b>Salvar senha</b>.</p>
+    <button class="btn ghost" type="button" data-act="gateVoltar" style="width:100%;justify-content:center">Não sou ${esc(quem)}</button></form></div>`;
+  autoEntrar();
+}
+async function entrarPessoaGate(){
+  const quem = S.gateQuem, senha = $("#gateSenha")?.value || "";
+  if (!senha){ S.gateMsg = "Digite a senha."; return render(); }
+  $("#view").innerHTML = `<div class="card"><p class="sub">Abrindo…</p></div>`;
+  try{
+    const r = await api({a:"entrarPessoa", pessoa:quem, senha});
+    if (r.ok && r.codigo){ ls.set("codigo", r.codigo); ls.set("me", quem); S.me = quem; S.desbloqueado = true; S.lockPessoa = ""; S.gateMsg = ""; guardarSenhaNoNavegador(quem, senha); loadPerson(); await carregar(); return; }
+    S.gateMsg = r.erro === "bloqueado" ? "Muitas tentativas. Espere 15 minutos." : r.erro === "sem_senha" ? "Essa pessoa ainda não criou senha." : "Senha errada. Tente de novo.";
+  }catch{ S.gateMsg = "Não consegui falar com a planilha. Confira a internet."; }
+  render();
+}
+/* jeito antigo (senha da família): só se o robô ainda não foi atualizado ou ninguém criou senha */
+function renderGateFamilia(){
   $("#view").innerHTML = `<div class="gate"><form class="gate-in" id="gateForm" autocomplete="on">${BOT}<h1>Oi! Eu sou a Fina.</h1>
-    <p class="sub">Digite a senha da família para abrir as finanças da casa neste aparelho.</p>
+    <p class="sub">Digite a senha da família (a antiga) para abrir neste aparelho. Depois cada um passa a entrar com a própria senha.</p>
     <input type="text" name="username" autocomplete="username" value="Família Assis" style="display:none" tabindex="-1" aria-hidden="true">
     <input id="gateCode" name="password" type="password" autocomplete="current-password" autocapitalize="none" placeholder="senha da família" aria-label="Senha da família">
     ${robo() ? "" : `<input id="gateRobo" autocomplete="off" placeholder="endereço do robô (https://script.google.com/…)" aria-label="Endereço do robô" style="font-size:13px;letter-spacing:0">`}
     <button class="btn" type="submit" style="width:100%;justify-content:center">Entrar</button>
     ${S.gateMsg ? `<p class="sub" style="color:var(--bad)">${esc(S.gateMsg)}</p>` : ""}
-    <p class="sub" style="font-size:13px">Quando o navegador perguntar, toque em <b>Salvar senha</b>. Assim, se algum dia pedir de novo, ele preenche sozinho.</p></form></div>`;
+    ${S.gatePessoas ? `<button class="btn ghost" type="button" data-act="gateVoltar" style="width:100%;justify-content:center">Voltar</button>` : ""}</form></div>`;
   autoEntrar();
 }
 /* o navegador guarda a senha (Chrome entra sozinho; iPhone e Mac preenchem pelo Chaveiro) */
 let tentouAuto = false;
 async function autoEntrar(){
   if (tentouAuto || !window.PasswordCredential || !navigator.credentials?.get) return; tentouAuto = true;
-  try{ const cred = await navigator.credentials.get({password:true, mediation:"optional"}); if (cred?.password && cred.id === "Família Assis" && !codigo()){ const el = $("#gateCode"); if (el){ el.value = cred.password; entrar(); } } }catch{}
+  try{ const cred = await navigator.credentials.get({password:true, mediation:"optional"}); if (!cred?.password || codigo()) return;
+    if (cred.id === "Família Assis"){ const el = $("#gateCode"); if (el){ el.value = cred.password; entrar(); } }
+    else if (S.gatePessoas && S.gatePessoas.some(p => p.nome === cred.id && p.temSenha)){ S.gateQuem = cred.id; render(); const el = $("#gateSenha"); if (el){ el.value = cred.password; entrarPessoaGate(); } } }catch{}
 }
-function guardarSenhaNoNavegador(senha){
-  try{ if (window.PasswordCredential && navigator.credentials?.store) navigator.credentials.store(new PasswordCredential({id:"Família Assis", password:senha, name:"Fina"})).catch(()=>{}); }catch{}
+function guardarSenhaNoNavegador(id, senha){
+  if (senha === undefined){ senha = id; id = "Família Assis"; }
+  try{ if (window.PasswordCredential && navigator.credentials?.store) navigator.credentials.store(new PasswordCredential({id, password:senha, name:id})).catch(()=>{}); }catch{}
 }
 async function entrar(){
   const c = $("#gateCode")?.value.trim(); const r = $("#gateRobo")?.value.trim();
@@ -1920,6 +1961,7 @@ document.addEventListener("change", ev => {
 });
 document.addEventListener("submit", ev => {
   if (ev.target.id === "gateForm"){ ev.preventDefault(); entrar(); }
+  if (ev.target.id === "gatePessoaForm"){ ev.preventDefault(); entrarPessoaGate(); }
   if (ev.target.id === "loginForm"){ ev.preventDefault(); enviarLogin(); }
   if (ev.target.id === "trocaSenhaForm"){ ev.preventDefault(); const a = $("#minhaNova")?.value||"", b = $("#minhaNova2")?.value||""; if (a.length < 4) return toast("Pelo menos 4 letras ou números."); if (a !== b) return toast("As duas senhas não estão iguais."); gravarSenhaPessoa(S.me, a).then(() => { render(); toast("Senha trocada."); }); }
   if (ev.target.id === "senhaForm"){ ev.preventDefault(); trocarSenha(); }

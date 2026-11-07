@@ -264,6 +264,8 @@ function doPost_(e) {
   let q = {};
   try { q = JSON.parse(e.postData.contents || '{}'); } catch (err) { return json_({ok: false, erro: 'json'}); }
   if (q.a === 'ping') return json_({ok: true, fina: true});
+  if (q.a === 'pessoas') return json_({ok: true, pessoas: pessoasPublicas_()});       // só nomes, para a tela de entrada
+  if (q.a === 'entrarPessoa') return json_(entrarPessoa_(q.pessoa, q.senha));        // entra com a senha de cada um
   if (!confere_(q.c)) return json_({ok: false, erro: 'codigo'});
   if (q.a === 'ler') return json_(dados_());
   if (q.a === 'senha') {                // a família escolhe a própria senha (Ajustes > Dados)
@@ -298,6 +300,23 @@ function doPost_(e) {
     return json_({ok: false, erro: 'acao'});
   } catch (err) { return json_({ok: false, erro: String(err)}); }
   finally { lock.releaseLock(); }
+}
+
+// ---------- entrada de cada pessoa: a senha pessoal (guardada só como hash) libera o aparelho ----------
+function pessoasPublicas_() {
+  const app = lerApp_(), perfis = app.perfis || {};
+  return (app.pessoas || ['Daiana', 'Gustavo']).map(n => ({nome: n, temSenha: !!(perfis[n] && perfis[n].senha && perfis[n].senha.hash)}));
+}
+function hex_(bytes) { return bytes.map(b => ('0' + (b & 255).toString(16)).slice(-2)).join(''); }
+function entrarPessoa_(pessoa, senha) {
+  const cache = CacheService.getScriptCache(), chave = 'falhas|' + pessoa, falhas = Number(cache.get(chave) || 0);
+  if (falhas >= 8) return {ok: false, erro: 'bloqueado'};             // muitas tentativas: espera 15 minutos
+  const sh = ((lerApp_().perfis || {})[pessoa] || {}).senha;
+  if (!sh || !sh.hash) return {ok: false, erro: 'sem_senha'};
+  const h = hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, sh.sal + ':' + String(senha || ''), Utilities.Charset.UTF_8));
+  if (h !== sh.hash) { cache.put(chave, String(falhas + 1), 900); return {ok: false, erro: 'senha'}; }
+  cache.remove(chave);
+  return {ok: true, codigo: props_().getProperty('CODIGO_FAMILIA')};
 }
 
 // ---------- taxas do dia (Banco Central, grátis e oficial) ----------

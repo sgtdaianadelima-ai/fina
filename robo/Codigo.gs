@@ -273,6 +273,7 @@ function doPost_(e) {
     return json_({ok: true});
   }
   if (q.a === 'taxas') return json_(taxas_());
+  if (q.a === 'promos') return json_({ok: true, itens: promos_(q.forcar)});
   if (q.a === 'chaveIA') return json_({ok: true, chave: props_().getProperty('GEMINI_KEY') || ''});   // o app chama o Gemini direto (mais rápido)
   if (q.a === 'ia') return json_(ia_(q.prompt, q.imagens));
   if (q.a === 'foto') return json_(Object.assign({ok: true}, salvarFoto_(q.base64, q.mime, q.nome)));
@@ -304,13 +305,46 @@ function taxas_() {
   const p = props_(); const salvo = p.getProperty('TAXAS');
   if (salvo) { const t = JSON.parse(salvo); if (Date.now() - t.quando < 6 * 36e5) return Object.assign({ok: true}, t); }
   const ult = cod => { const r = UrlFetchApp.fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.' + cod + '/dados/ultimos/1?formato=json', {muteHttpExceptions: true});
-    const j = JSON.parse(r.getContentText()); return {v: num_(j[0].valor), d: j[0].data}; };
+    const j = JSON.parse(r.getContentText()); return {v: parseFloat(String(j[0].valor).replace(',', '.')), d: j[0].data}; };   // o BC manda com ponto decimal (13.75)
   try {
-    const sel = ult(432), cdi = ult(4389), ipca = ult(13522);
-    const t = {selic: sel.v, cdi: cdi.v, ipca12: ipca.v, data: sel.d, quando: Date.now()};
+    const sel = ult(432), cdi = ult(4389), ipca = ult(13522); let dolar = null; try { dolar = ult(1).v; } catch (e) {}
+    const t = {selic: sel.v, cdi: cdi.v, ipca12: ipca.v, dolar: dolar, data: sel.d, quando: Date.now()};
     p.setProperty('TAXAS', JSON.stringify(t));
     return Object.assign({ok: true}, t);
   } catch (e) { return salvo ? Object.assign({ok: true}, JSON.parse(salvo)) : {ok: false, erro: 'bcb'}; }
+}
+
+// ---------- radar de milhas: lê os sites de milhas e separa as transferências com bônus ----------
+const FEEDS_ = ['https://pontospravoar.com/feed/', 'https://passageirodeprimeira.com/feed/', 'https://www.cartoesdecredito.me/feed/', 'https://www.melhorescartoes.com.br/feed'];
+function promos_(forcar) {
+  const p = props_(); const salvo = p.getProperty('PROMOS');
+  if (salvo && !forcar) { const c = JSON.parse(salvo); if (Date.now() - c.quando < 3 * 36e5) return c.itens; }
+  const itens = [], vistos = {};
+  const tira = (b, tag) => { const m = b.match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>', 'i')); return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''; };
+  const ORIG = [['Itaú', /ita[uú]/i], ['Livelo', /livelo/i], ['Esfera', /esfera/i], ['PortoPlus', /porto/i], ['Nubank', /nubank/i], ['C6', /\bc6\b|átomos/i], ['Bradesco', /bradesco/i], ['Inter', /\binter\b|loop/i]];
+  const DEST = [['Azul', /azul/i], ['Smiles', /smiles/i], ['LATAM Pass', /latam/i], ['TAP', /\btap\b/i], ['Livelo', /para (a )?livelo/i]];
+  FEEDS_.forEach(url => {
+    try {
+      const r = UrlFetchApp.fetch(url, {muteHttpExceptions: true, followRedirects: true}); if (r.getResponseCode() !== 200) return;
+      (r.getContentText().match(/<item[\s\S]*?<\/item>/gi) || []).forEach(b => {
+        const titulo = tira(b, 'title').replace(/&#8211;|&#8212;/g, '–').replace(/&#8220;|&#8221;/g, '"').replace(/&amp;/g, '&'), link = tira(b, 'link'), data = new Date(tira(b, 'pubDate'));
+        if (!/b[oô]nus|bonificad/i.test(titulo) || vistos[link]) return;
+        const transf = /transfer|envio|enviar|para (a |o )?(azul|smiles|latam|tap|livelo)|pontos (do |da )?(ita[uú]|livelo|esfera|porto|nubank|c6|bradesco)/i.test(titulo);
+        const compra = !transf && /compra|comprar|assin/i.test(titulo);
+        if (!transf && !compra) return;
+        if (isNaN(data) || Date.now() - data.getTime() > 12 * 864e5) return;
+        const pcts = (titulo.match(/(\d{2,3})\s?%/g) || []).map(x => parseInt(x)); if (!pcts.length) return;
+        vistos[link] = 1;
+        itens.push({titulo: titulo, link: link, data: Utilities.formatDate(data, TZ, 'yyyy-MM-dd'), bonus: Math.max.apply(null, pcts),
+          origens: ORIG.filter(o => o[1].test(titulo)).map(o => o[0]), destinos: DEST.filter(d => d[1].test(titulo)).map(d => d[0]),
+          tipo: transf ? 'transferencia' : 'compra', ultimoDia: /último dia|ultimo dia|termina hoje|só hoje|somente hoje|últimas horas/i.test(titulo)});
+      });
+    } catch (e) {}
+  });
+  itens.sort((a, b) => b.data.localeCompare(a.data) || b.bonus - a.bonus);
+  const lista = itens.slice(0, 40);
+  if (lista.length || !salvo) p.setProperty('PROMOS', JSON.stringify({quando: Date.now(), itens: lista}));
+  return lista.length ? lista : (salvo ? JSON.parse(salvo).itens : []);
 }
 
 // ---------- avisos no celular (app grátis ntfy) ----------
@@ -372,6 +406,15 @@ function avisosDiarios() {
       const dias = app.fixasDia || {}, pagos = (app.pagos || {})[ym] || {};
       const vence = D.config.fixas.filter(f => Number(dias[f.nome]) === amanha && !pagos[f.nome]).map(f => f.nome + ' (' + BRL(f.valor) + ')');
       if (vence.length) avisar_(av.topico, 'Conta vence amanhã', vence.join(', ') + '. Depois marque como paga na Fina.', 'receipt');
+    }
+    if (av.milhas !== false) {          // radar: bônus bom para os pontos que vocês têm (Itaú, Livelo, PortoPlus)
+      try {
+        const origens = ((app.milhas || {}).origens) || ['Itaú', 'Livelo', 'PortoPlus'];
+        promos_().filter(x => x.tipo === 'transferencia' && x.bonus >= 80 && x.origens.some(o => origens.indexOf(o) >= 0)).forEach(x => {
+          const k = 'PROMO|' + nome + '|' + x.link; if (p.getProperty(k)) return; p.setProperty(k, '1');
+          avisar_(av.topico, 'Milhas: ' + x.bonus + '% de bônus', x.titulo + (x.ultimoDia ? ' (último dia!)' : '') + ' — veja na Fina se vale para vocês.', 'airplane');
+        });
+      } catch (e) {}
     }
     if (av.semanal !== false && hoje.getDay() === 0)
       avisar_(av.topico, 'Resumo da semana', (R.ainda < 0 ? 'O mês passou do limite em ' : 'Ainda dá pra gastar ') + BRL(Math.abs(R.ainda)) + ' este mês.', 'bar_chart');

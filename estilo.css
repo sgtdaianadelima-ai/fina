@@ -385,3 +385,18 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 .at.risco{border-left-color:var(--bad)} .at.alerta{border-left-color:var(--gold)} .at.dado{border-left-color:var(--accent)}
 .at .btn{padding:8px 12px;font-size:13px;flex:none}
 .neg{color:var(--bad)}
+/* milhas */
+.promo{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--surface-2);text-decoration:none;color:var(--ink);margin-bottom:6px}
+.promo .pct{flex:none;min-width:52px;text-align:center;font:700 16px var(--f-display);padding:6px 8px;border-radius:10px;background:var(--surface);color:var(--ink-2)}
+.promo.top .pct{background:var(--accent);color:var(--accent-ink)}
+.promo .t{display:grid;gap:2px;min-width:0}
+.promo .t b{font-size:14px;line-height:1.35}
+.promo small{font-size:12px;color:var(--ink-3)}
+.veredito{border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.45;background:var(--surface-2);border-left:4px solid var(--ink-3)}
+.veredito.bom{border-left-color:var(--ok);background:var(--accent-soft)} .veredito.alerta{border-left-color:var(--gold);background:var(--gold-soft)} .veredito.risco{border-left-color:var(--bad);background:var(--bad-soft)}
+.parc,.novo{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.parc:last-child,.novo:last-child{border-bottom:0}
+.parc span:first-child,.novo span:first-child{display:grid;gap:2px;min-width:0}
+.parc small,.novo small{font-size:12px;color:var(--ink-2);line-height:1.4}
+.tag{flex:none;font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--surface-2)}
+.tag.bom{background:var(--accent-soft);color:var(--ok)} .tag.alerta{background:var(--gold-soft);color:var(--gold)} .tag.risco{background:var(--bad-soft);color:var(--bad)}

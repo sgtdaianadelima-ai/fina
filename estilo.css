@@ -400,3 +400,58 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 .parc small,.novo small{font-size:12px;color:var(--ink-2);line-height:1.4}
 .tag{flex:none;font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--surface-2)}
 .tag.bom{background:var(--accent-soft);color:var(--ok)} .tag.alerta{background:var(--gold-soft);color:var(--gold)} .tag.risco{background:var(--bad-soft);color:var(--bad)}
+
+/* ---------- Nosso Quadro (Metas → Quadro) ---------- */
+.mv-chips .chip{cursor:pointer}
+.mv-chips .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.mv-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.mv-area h2{display:flex;align-items:center;gap:8px}
+.mv-area .bar{margin-bottom:6px}
+.mv-lista{display:grid}
+.mv-item{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--surface-2)}
+.mv-item:first-child{border-top:0}
+.mv-box{width:26px;height:26px;flex:none;border-radius:8px;border:2px solid var(--line);background:var(--surface);color:#fff;font-weight:900;display:grid;place-items:center;padding:0;margin-top:1px}
+.mv-box[aria-pressed="true"]{background:var(--ok);border-color:var(--ok)}
+.mv-txt{border:0;background:none;padding:0;text-align:left;display:grid;gap:3px;min-width:0;flex:1;color:var(--ink)}
+.mv-t{font-weight:700;font-size:15px}
+.mv-txt small{color:var(--ink-2);font-size:13px}
+.mv-quem{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.mv-item.feito .mv-t{text-decoration:line-through;color:var(--ink-3)}
+.mv-pills{display:flex;gap:6px;flex-wrap:wrap}
+.mv-pill{font-size:12px;font-weight:800;padding:2px 9px;border-radius:999px}
+.mv-prio{background:var(--gold-soft)}
+.mv-prio ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.mv-prio li{display:flex;align-items:center;gap:10px}
+.mv-prio .n{width:28px;height:28px;flex:none;border-radius:9px;background:var(--gold);color:#fff;font-weight:800;display:grid;place-items:center}
+.mv-habs{display:grid;gap:12px}
+.mv-hab{display:grid;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--surface-2)}
+.mv-hab:last-child{border-bottom:0;padding-bottom:0}
+.mv-week{display:flex;gap:4px;flex-wrap:wrap}
+.mv-week button{min-width:32px;height:32px;border-radius:9px;border:0;background:var(--track);color:var(--ink-2);font-weight:800;font-size:12px;padding:0 6px}
+.mv-week button.hoje{outline:2px solid var(--accent);outline-offset:1px}
+.mv-week button.on{background:var(--ok);color:#fff}
+.mv-week button:disabled{opacity:.45;cursor:default}
+.mv-inicio .mv-prox{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 10px;font-size:14px}
+.mv-hoje{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.mv-hoje .chip{cursor:pointer}
+/* mural dos sonhos: quadro de cortiça com bilhetes (bilhetes ficam claros nos dois temas, como papel) */
+.mural{background:color-mix(in srgb, #C9A77C 38%, var(--bg));border-radius:var(--r-lg);padding:20px 16px;display:grid;gap:18px}
+.mural-topo{text-align:center}
+.mural-tit{font:700 clamp(34px,9vw,54px)/1 "Caveat","Segoe Print",cursive;color:var(--ink)}
+.mural-sub{font:600 21px "Caveat","Segoe Print",cursive;color:var(--ink-2)}
+.mural-sonhos{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.mural-sonho{border:0;background:var(--surface);color:var(--ink);border-radius:14px;padding:14px 10px;display:grid;gap:2px;text-align:center;transform:rotate(var(--r,0deg));box-shadow:0 8px 18px rgba(0,0,0,.12)}
+.mural-sonho .ano{font:700 24px/1 "Caveat","Segoe Print",cursive;color:var(--accent)}
+.mural-sonho b{font-family:var(--f-display);font-size:18px;line-height:1.15}
+.mural-sonho .ok{font-size:12px;font-weight:800;color:var(--ok)}
+.mural-sonho.feito{opacity:.75}
+.mural-notas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.mural-nota{position:relative;color:#2B2030;border-radius:4px;padding:22px 16px 16px;display:grid;gap:6px;align-content:start;transform:rotate(var(--r,0deg));box-shadow:0 12px 20px rgba(0,0,0,.16);min-width:0}
+.mural-nota::before{content:"";position:absolute;top:-9px;left:50%;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--pin);box-shadow:inset -3px -3px 0 rgba(0,0,0,.2),0 2px 3px rgba(0,0,0,.3)}
+.mural-nota .mural-tag{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.65}
+.mural-nota h3{font:700 30px/1 "Caveat","Segoe Print",cursive;color:#2B2030}
+.mural-nota ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14.5px}
+.mural-nota em{font-style:normal;opacity:.6;font-size:12.5px}
+.mural-nota li.feito{text-decoration:line-through;opacity:.55}
+.mural-pe{text-align:center;font:600 22px "Caveat","Segoe Print",cursive;color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){.mural-nota,.mural-sonho{transform:none}}

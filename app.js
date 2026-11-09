@@ -1,6 +1,6 @@
 
 /* ---------- ícones ---------- */
-const VERSAO_APP = 19;   // igual ao número do sw.js
+const VERSAO_APP = 20;   // igual ao número do sw.js
 const I = {
   olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
   olhoFechado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
@@ -178,7 +178,7 @@ const THEMES = {
             dark: PAL("#0F1613","#17211C","#1E2A24","#2B3A32","#E8EFEA","#A9B8AF","#7A8A81","#3CC593","#E6B04B","#F0806B","#5AD08C","#26342D")},
 };
 const SWATCHES = ["#B4507A","#D9694A","#E0A33A","#4F8A65","#2E8B8B","#3F6FD1","#7457C4","#C2185B","#8D6E63","#2F3437"];
-const HOME_SECTIONS = [["atencao","Pedem sua atenção"],["stats","Números do mês"],["saude","Saúde do mês (50-30-20)"],["atalhos","Atalhos (fatura e falar)"],["contas","Contas do mês (paguei)"],["categorias","Categorias"],["separado","Separado antes de gastar"],["reserva","Reserva de emergência"],["fechamentos","Faturas dos cartões"],["renda","Renda de cada um"]];
+const HOME_SECTIONS = [["quadro","Nosso Quadro"],["atencao","Pedem sua atenção"],["stats","Números do mês"],["saude","Saúde do mês (50-30-20)"],["atalhos","Atalhos (fatura e falar)"],["contas","Contas do mês (paguei)"],["categorias","Categorias"],["separado","Separado antes de gastar"],["reserva","Reserva de emergência"],["fechamentos","Faturas dos cartões"],["renda","Renda de cada um"]];
 const THEME_DEFAULT = {preset:"nos", modo:"auto", accent:"", fd:"", fb:"", tamanho:"m", cantos:"suaves", cartoes:"plano", secoes:Object.fromEntries(HOME_SECTIONS.map(([k])=>[k,true]))};
 function personTheme(nome){ const t = (S.config && S.config.perfis && S.config.perfis[nome] && S.config.perfis[nome].tema) || {}; return {...THEME_DEFAULT, ...t, secoes:{...THEME_DEFAULT.secoes, ...(t.secoes||{})}}; }
 function themeNow(){ return personTheme(S.me); }
@@ -307,6 +307,7 @@ function renderInicio(){
     <div class="meter" aria-hidden="true"><i style="width:${(usado*100).toFixed(1)}%"></i></div>
     <div class="legend num"><span>${Math.round(usado*100)}% da renda já comprometida</span><span>entrou ${mv(M.entrou)}</span></div>
   </section>
+  ${on("quadro") ? cardQuadroInicio() : ""}
   ${on("atencao") ? cardAtencao(M, mv) : ""}
   ${on("stats")?`<div class="stats">
     <div class="stat s-entrou"><small>Entrou no mês</small><b class="num">${mv(M.entrou)}</b><span>${S.ver ? `${money0(salario)} de salário` : "salários, vales e extras"}</span></div>
@@ -387,7 +388,8 @@ function renderMetas(){
     const iy = H-28 - x.entrou/maxV*(H-48);
     return rects + (x.entrou?`<line x1="${xs-4}" x2="${xs+w+4}" y1="${iy}" y2="${iy}" stroke="var(--ink)" stroke-width="2"/>`:"") + `<text x="${xs+w/2}" y="${H-8}" text-anchor="middle" font-size="12" fill="var(--ink-2)">${mLabel(x.ym).slice(0,3)}</text>`;
   }).join("");
-  const segMetas = `<div class="seg aj-abas" role="tablist" aria-label="Metas ou investir">${[["metas","Metas"],["futuro","Futuro"],["investir","Investir"],["milhas","Milhas"],["dividas","Dívidas"]].map(([k,t])=>`<button role="tab" data-metaseg="${k}" aria-pressed="${(S.metaSeg||"metas")===k}">${t}</button>`).join("")}</div>`;
+  const segMetas = `<div class="seg aj-abas" role="tablist" aria-label="Metas ou investir">${[["quadro","Quadro"],["metas","Metas"],["futuro","Futuro"],["investir","Investir"],["milhas","Milhas"],["dividas","Dívidas"]].map(([k,t])=>`<button role="tab" data-metaseg="${k}" aria-pressed="${(S.metaSeg||"quadro")===k}">${t}</button>`).join("")}</div>`;
+  if (!S.metaSeg || S.metaSeg === "quadro"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>${esc(cfg().pessoas.join(" e "))}</small><h1>Nosso Quadro</h1></div><button class="btn" data-act="novaMetaVida">${I.plus}Meta</button></div>${segMetas}${renderQuadro()}`; return; }
   if (S.metaSeg === "investir"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>Seu dinheiro trabalhando</small><h1>Investir</h1></div></div>${segMetas}${renderInvestir()}`; return; }
   if (S.metaSeg === "milhas"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>Pontos que viram viagem</small><h1>Milhas</h1></div>${monthSwitch()}</div>${segMetas}${renderMilhas()}`; return; }
   if (S.metaSeg === "dividas"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>Para ficar livre de juros</small><h1>Dívidas</h1></div></div>${segMetas}${renderDividas()}`; return; }
@@ -579,6 +581,7 @@ function buildPrompt(text, nImgs){
     proximos_meses: Array.from({length:6},(_,k)=>addM(ymOf(new Date()),k)).map(ym => { const x = month(ym); return {mes: ym, entra:+x.entrou.toFixed(2), comprometido:+(x.separado+x.fixas+x.parc).toFixed(2), sobra_para_dia_a_dia:+(x.entrou-x.separado-x.fixas-x.parc).toFixed(2), ja_gasto:+x.dia.toFixed(2)}; }),
     taxas_de_hoje: cfg().taxas || null,
     objetivos: objetivosTodos().map(o => ({nome:o.nome, tipo:o.tipo, meta:o.meta, ja_tem:o.jaTem, data:o.data})),
+    metas_da_vida: quadroItens().map(i => ({area: areaDe(i.area)[1], meta: i.texto, detalhe: i.obs||"", quem: i.quem||"os dois", prazo: i.prazo||"", habito: freqTxt(i.freq), prioridade: i.prio||"", feito: !!i.feito})),
     perfil_investidor: cfg().perfilInvest?.perfil || "não respondido",
     saude_do_mes: saudeDoMes(M),
     milhas: {cartoes: resumoPontos(M).linhas.map(x => ({cartao:x.nome, programa:x.programa, gasto_mes:+x.total.toFixed(2), pontos_mes:Math.round(x.pontos)})), saldos: (cfg().milhas?.saldos||[]), promocoes_ativas: (ls.get("radar", {}).itens||[]).filter(x=>x.tipo==="transferencia").slice(0,8).map(x=>`${x.data}: ${x.titulo}`), regras:"Pontos do banco valem mais transferidos com bônus de 80%+ para companhia aérea, com viagem em mente. Trocar por produto ou dinheiro costuma valer pouco (abaixo de R$ 20 por mil pontos). Nunca gastar a mais para pontuar."},
@@ -1120,6 +1123,15 @@ document.addEventListener("click", async ev => {
   if (d.repdel) return apagarLista("recorrentes", d.repdel, "repdel");
   if (d.act==="salvarNota"){ return saveConfig({notas:{...(cfg().notas||{}), [S.mes]: ($("#notaMes")?.value||"").trim()}}); }
   if (d.atencao){ const [acao, arg] = d.atencao.split("|"); if (acao === "metas"){ S.metaSeg = "metas"; if (arg) S.mes = arg; return go("metas"); } if (acao === "contas"){ S.dobras = {...(S.dobras||{}), contas:true}; return render(); } if (acao === "fila") return processarFilaIA(); if (acao === "milhas"){ S.metaSeg = "milhas"; return go("metas"); } }
+  if (d.act==="novaMetaVida") return editarMetaVida(null);
+  if (d.mvedit) return editarMetaVida(d.mvedit);
+  if (d.mvsave != null) return salvarMetaVida(d.mvsave);
+  if (d.mvdel){ const btn = document.querySelector(`[data-mvdel="${d.mvdel}"]`); if (btn && !btn.dataset.sure){ btn.dataset.sure = "1"; btn.textContent = "Toque de novo para apagar"; return; } $("#modalRoot").innerHTML = ""; return saveConfig({quadro:{...(cfg().quadro||{}), itens: quadroItens().filter(x => x.id !== d.mvdel)}}); }
+  if (d.mvfeito) return marcarMetaVida(d.mvfeito);
+  if (d.hab) return marcarHabito(...d.hab.split("|"));
+  if (d.qmodo){ S.quadroModo = d.qmodo; return render(); }
+  if (d.qarea != null){ S.quadroArea = d.qarea; return render(); }
+  if (d.act==="abrirQuadro"){ S.metaSeg = "quadro"; return go("metas"); }
   if (d.objedit) return editarObjetivo(d.objedit);
   if (d.objsave != null) return salvarObjetivo(d.objsave);
   if (d.objdel) return apagarObjetivo(d.objdel);
@@ -1353,6 +1365,134 @@ function apagarObjetivo(id){
   const btn = document.querySelector(`[data-objdel="${id}"]`);
   if (btn && !btn.dataset.sure){ btn.dataset.sure = "1"; btn.textContent = "Toque de novo para apagar"; return; }
   $("#modalRoot").innerHTML = ""; saveConfig({objetivos: (cfg().objetivos || []).filter(x => x.id !== id)});
+}
+/* ---------- Nosso Quadro: metas da vida do casal (fica no App!A1 da planilha, chave "quadro") ----------
+   item: {id, area, texto, obs, quem, prazo ("2027" ou "2027-03"), freq ("" meta | "dia" | "0".."6" dia da semana), prio (1-3), sonho (frase do mural), feito (data)}
+   quadroDias: {"2026-11-09": [ids dos hábitos feitos nesse dia]} */
+const AREAS_VIDA = [["pro","Profissional","#3F6FB5","Crescer na carreira"],["emo","Emocional","#C2456E","Cuidar de nós"],["esp","Espiritual","#7A5BB0","Deus no centro"],["fin","Financeira","#2F8A5F","Dinheiro em ordem"],["sau","Saúde","#D07A2D","Corpo e mente"],["fam","Família","#2E8B8B","Nossa família"],["laz","Lazer","#C98A1B","Viver bem"]];
+const DIAS_SEM = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+const MESES_C = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const areaDe = k => AREAS_VIDA.find(a => a[0] === k) || AREAS_VIDA[0];
+const quadroItens = () => cfg().quadro?.itens || [];
+const ehHabito = i => !!i.freq;
+const freqTxt = f => !f ? "" : f === "dia" ? "todo dia" : "toda " + DIAS_SEM[Number(f)];
+const prazoTxt = p => { if (!p) return ""; const [y,m] = String(p).split("-"); return m ? `${MESES_C[Number(m)-1]}/${y}` : y; };
+const prazoFim = p => { const [y,m] = String(p).split("-"); return `${y}-${m || "12"}`; };
+function faltaTxt(p){
+  if (!p) return ""; const k = mDiff(ymOf(new Date()), prazoFim(p));
+  return k < 0 ? "prazo passou" : k === 0 ? "é este mês!" : k === 1 ? "falta 1 mês" : `faltam ${k} meses`;
+}
+const corSoft = c => `color-mix(in srgb, ${c} 16%, var(--surface))`;
+function semanaAtual(){ const d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate() - d.getDay()); return Array.from({length:7}, (_,k) => { const x = new Date(d); x.setDate(d.getDate()+k); return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`; }); }
+const habFeito = (id, dia) => (cfg().quadroDias?.[dia] || []).includes(id);
+
+function marcarHabito(id, dia){
+  if (dia > today()) return toast("Esse dia ainda não chegou.");
+  const lista = new Set(cfg().quadroDias?.[dia] || []);
+  lista.has(id) ? lista.delete(id) : lista.add(id);
+  const arr = [...lista];
+  S.config = {...cfg(), quadroDias: {...(cfg().quadroDias||{}), [dia]: arr}};
+  enfileirar({a:"app", app:{quadroDias:{[dia]: arr}}}, "qd:" + dia); guardarLocal(); render(); enviar();
+}
+function marcarMetaVida(id){
+  const itens = quadroItens().map(x => x.id === id ? {...x, feito: x.feito ? "" : today()} : x);
+  const it = itens.find(x => x.id === id);
+  saveConfig({quadro: {...(cfg().quadro||{}), itens}});
+  if (it?.feito){ document.querySelectorAll(".toast").forEach(e => e.remove()); toast("Conquista! 🎉 Parabéns, vocês dois.", 3200); }
+}
+function linhaMetaVida(i){
+  const a = areaDe(i.area);
+  const pill = (t, extra="") => `<span class="mv-pill" style="background:${corSoft(a[2])};color:${a[2]}">${esc(t)}${extra}</span>`;
+  return `<div class="mv-item ${i.feito ? "feito" : ""}">
+    <button class="mv-box" data-mvfeito="${esc(i.id)}" aria-pressed="${!!i.feito}" aria-label="${i.feito ? "Desmarcar" : "Marcar como feita"}: ${esc(i.texto)}">${i.feito ? "✓" : ""}</button>
+    <button class="mv-txt" data-mvedit="${esc(i.id)}">
+      ${i.quem ? `<span class="mv-quem">${esc(i.quem)}</span>` : ""}
+      <span class="mv-t">${esc(i.texto)}</span>
+      ${i.obs ? `<small>${esc(i.obs)}</small>` : ""}
+      ${i.prazo || i.freq ? `<span class="mv-pills">${i.prazo ? pill(prazoTxt(i.prazo), i.feito ? "" : " · " + faltaTxt(i.prazo)) : ""}${i.freq ? pill(freqTxt(i.freq)) : ""}</span>` : ""}
+    </button></div>`;
+}
+function renderQuadro(){
+  const todos = quadroItens(), modo = S.quadroModo || "lista";
+  const seg = `<div class="seg" role="group" aria-label="Ver como"><button data-qmodo="lista" aria-pressed="${modo==="lista"}">Lista</button><button data-qmodo="mural" aria-pressed="${modo==="mural"}">Mural dos sonhos</button></div>`;
+  if (!todos.length) return `${seg}<section class="card"><div class="empty"><p><b>O quadro está vazio.</b></p><p>Toque em <b>+ Meta</b> para colocar o primeiro sonho de vocês.</p></div></section>`;
+  if (modo === "mural") return seg + renderMural(todos);
+  const areasUsadas = AREAS_VIDA.filter(a => todos.some(i => i.area === a[0]));
+  const filtro = S.quadroArea || "";
+  const chips = `<div class="chips mv-chips" role="group" aria-label="Áreas"><button class="chip" data-qarea="" aria-pressed="${!filtro}">Todas</button>${areasUsadas.map(a => `<button class="chip" data-qarea="${a[0]}" aria-pressed="${filtro===a[0]}"><i class="mv-dot" style="background:${a[2]}"></i>${a[1]}</button>`).join("")}</div>`;
+  const prios = todos.filter(i => i.prio && !i.feito).sort((a,b) => a.prio - b.prio);
+  const prioCard = prios.length && !filtro ? `<section class="card mv-prio"><div class="head"><h2>⭐ Prioridades</h2><span class="sub">nesta ordem</span></div><ol>${prios.map(i => `<li><span class="n">${i.prio}</span><button class="mv-txt" data-mvedit="${esc(i.id)}"><span class="mv-t">${esc(i.texto)}</span></button><span class="sub">${esc(prazoTxt(i.prazo))}</span></li>`).join("")}</ol></section>` : "";
+  const semana = semanaAtual(), hoje = today();
+  const habs = todos.filter(i => ehHabito(i) && (!filtro || i.area === filtro));
+  const habCard = habs.length ? `<section class="card"><div class="head"><h2>Combinados desta semana</h2><span class="sub">toque no dia que fizeram</span></div><div class="mv-habs">${habs.map(i => {
+      const dias = i.freq === "dia" ? semana : [semana[Number(i.freq)]];
+      return `<div class="mv-hab"><button class="mv-txt" data-mvedit="${esc(i.id)}"><span class="mv-t">${esc(i.texto)}</span><small>${esc(freqTxt(i.freq))}${i.quem ? " · " + esc(i.quem) : ""}</small></button><div class="mv-week">${dias.map(dia => { const n = new Date(dia+"T12:00").getDay(); const on = habFeito(i.id, dia);
+        return `<button data-hab="${esc(i.id)}|${dia}" class="${on?"on":""} ${dia===hoje?"hoje":""}" aria-pressed="${on}" ${dia>hoje?"disabled":""} aria-label="${DIAS_SEM[n]}${on?" (feito)":""}">${i.freq === "dia" ? DIAS_SEM[n][0].toUpperCase() : DIAS_SEM[n].slice(0,3)}</button>`; }).join("")}</div></div>`; }).join("")}</div></section>` : "";
+  const cards = AREAS_VIDA.filter(a => (!filtro || a[0] === filtro) && todos.some(i => i.area === a[0])).map(a => {
+    const its = todos.filter(i => i.area === a[0]); const metas = its.filter(i => !ehHabito(i));
+    const feitas = metas.filter(i => i.feito).length;
+    const ordem = [...its].sort((x,y) => (!!x.feito - !!y.feito) || (ehHabito(x) - ehHabito(y)) || String(prazoFim(x.prazo||"9999")).localeCompare(prazoFim(y.prazo||"9999")));
+    return `<section class="card mv-area"><div class="head"><h2><i class="mv-dot" style="background:${a[2]}"></i>${a[1]}</h2><span class="sub num">${metas.length ? `${feitas} de ${metas.length} feitas` : ""}</span></div>
+      ${metas.length ? `<div class="bar"><i style="width:${(feitas/metas.length*100).toFixed(0)}%;background:${a[2]}"></i></div>` : ""}
+      <div class="mv-lista">${ordem.map(linhaMetaVida).join("")}</div></section>`;
+  }).join("");
+  return `${seg}${chips}${prioCard}${habCard}<div class="settings">${cards}</div><p class="sub" style="text-align:center">Toque numa meta para editar. Fica guardado na planilha, para os dois.</p>`;
+}
+function renderMural(todos){
+  loadFont("Caveat");
+  const p = cfg().pessoas, q = cfg().quadro || {};
+  const sonhos = todos.filter(i => i.sonho).sort((a,b) => prazoFim(a.prazo||"9999").localeCompare(prazoFim(b.prazo||"9999")));
+  const giro = k => [-1.2, .9, -.5, 1.3, -.8, .6, -1][k % 7];
+  const notas = AREAS_VIDA.filter(a => todos.some(i => i.area === a[0])).map((a,k) => `<div class="mural-nota" style="--r:${giro(k)}deg;--pin:${a[2]};background:color-mix(in srgb, ${a[2]} 18%, #FFFDF8)">
+      <span class="mural-tag">${a[1]}</span><h3>${a[3]}</h3>
+      <ul>${todos.filter(i => i.area === a[0]).map(i => `<li class="${i.feito?"feito":""}">${esc(i.texto)}${i.freq ? ` <em>(${esc(freqTxt(i.freq))})</em>` : i.prazo ? ` <em>(${esc(prazoTxt(i.prazo))})</em>` : ""}</li>`).join("")}</ul></div>`).join("");
+  return `<section class="mural">
+    <div class="mural-topo"><div class="mural-tit">${esc(q.titulo || "Família " + (q.sobrenome || "Assis"))}</div><div class="mural-sub">${esc(q.frase || "o que a gente quer construir juntos")}</div></div>
+    ${sonhos.length ? `<div class="mural-sonhos">${sonhos.map((i,k) => `<button class="mural-sonho ${i.feito?"feito":""}" data-mvedit="${esc(i.id)}" style="--r:${giro(k+3)/1.5}deg"><span class="ano">${esc(prazoTxt(i.prazo) || "sempre")}</span><b>${esc(i.sonho)}</b>${i.feito ? `<span class="ok">conquistado ✓</span>` : ""}</button>`).join("")}</div>` : `<p class="sub" style="text-align:center">Dica: ao editar uma meta, escreva uma "frase grande no mural" para ela aparecer em destaque aqui.</p>`}
+    <div class="mural-notas">${notas}</div>
+    <div class="mural-pe">${esc(p.join(" & "))}</div>
+  </section><p class="sub" style="text-align:center">Quer de papel de parede? Tire um print desta tela.</p>`;
+}
+function cardQuadroInicio(){
+  const todos = quadroItens(); if (!todos.length) return "";
+  const hoje = today(), dow = String(new Date().getDay());
+  const habHoje = todos.filter(i => i.freq && (i.freq === "dia" || i.freq === dow) && (!i.quem || i.quem === S.me || !cfg().pessoas.includes(i.quem)));
+  const prox = todos.filter(i => !i.feito && i.prazo && !ehHabito(i)).sort((a,b) => prazoFim(a.prazo).localeCompare(prazoFim(b.prazo)))[0];
+  if (!habHoje.length && !prox) return "";
+  return `<section class="card mv-inicio"><div class="head"><h2>Nosso Quadro</h2><button class="speak" data-act="abrirQuadro">Abrir</button></div>
+    ${prox ? `<div class="line mv-prox"><span>Próxima meta: <b>${esc(prox.texto)}</b></span><span class="sub">${esc(prazoTxt(prox.prazo))} · ${esc(faltaTxt(prox.prazo))}</span></div>` : ""}
+    ${habHoje.length ? `<div class="mv-hoje">${habHoje.map(i => { const on = habFeito(i.id, hoje); return `<button class="chip ${on?"ok":""}" data-hab="${esc(i.id)}|${hoje}" aria-pressed="${on}">${on ? "✓ " : "Hoje: "}${esc(i.texto)}</button>`; }).join("")}</div>` : ""}
+  </section>`;
+}
+function editarMetaVida(id){
+  const o = id ? quadroItens().find(x => x.id === id) : {area: S.quadroArea || "fin", texto:"", obs:"", quem:"", prazo:"", freq:"", prio:0, sonho:""};
+  if (!o) return;
+  const [ano, mes] = String(o.prazo || "").split("-");
+  $("#modalRoot").innerHTML = `<div class="overlay" data-close="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="Meta do quadro">
+    <h2>${id ? "Editar" : "Nova"} meta</h2>
+    <div class="fgrid">
+      <label class="full">O quê<input id="mv-texto" value="${esc(o.texto)}" placeholder="ex.: viagem ao exterior"></label>
+      <label class="full">Detalhe (opcional)<input id="mv-obs" value="${esc(o.obs)}" placeholder="ex.: 1ª opção Europa"></label>
+      <label>Área<select id="mv-area">${AREAS_VIDA.map(a => `<option value="${a[0]}" ${o.area===a[0]?"selected":""}>${a[1]}</option>`).join("")}</select></label>
+      <label>De quem<select id="mv-quem"><option value="">Os dois</option>${cfg().pessoas.map(n => `<option ${o.quem===n?"selected":""}>${esc(n)}</option>`).join("")}${o.quem && !cfg().pessoas.includes(o.quem) ? `<option selected>${esc(o.quem)}</option>` : ""}</select></label>
+      <label class="full">Tipo<select id="mv-freq"><option value="">Meta (faz uma vez)</option><option value="dia" ${o.freq==="dia"?"selected":""}>Combinado de todo dia</option>${DIAS_SEM.map((d,k) => `<option value="${k}" ${o.freq===String(k)?"selected":""}>Combinado de toda ${d}</option>`).join("")}</select></label>
+      <label>Ano do prazo<input id="mv-ano" type="number" min="2024" max="2060" inputmode="numeric" value="${esc(ano||"")}" placeholder="sem prazo"></label>
+      <label>Mês<select id="mv-mes"><option value="">o ano todo</option>${MESES_C.map((m,k) => `<option value="${pad(k+1)}" ${mes===pad(k+1)?"selected":""}>${m}</option>`).join("")}</select></label>
+      <label>Prioridade<select id="mv-prio"><option value="0">Nenhuma</option>${[1,2,3,4,5].map(n => `<option value="${n}" ${Number(o.prio)===n?"selected":""}>${n}º lugar</option>`).join("")}</select></label>
+      <label class="full">Frase grande no mural (opcional)<input id="mv-sonho" value="${esc(o.sonho||"")}" placeholder="ex.: Tenente Daiana"></label>
+    </div>
+    <div class="acts">${id ? `<button class="btn danger" data-mvdel="${esc(id)}">Apagar</button>` : "<span></span>"}<span style="display:flex;gap:8px"><button class="btn ghost" data-close="1">Cancelar</button><button class="btn" data-mvsave="${esc(id||"")}">Salvar</button></span></div>
+  </div></div>`;
+}
+function salvarMetaVida(id){
+  const g = f => (document.getElementById(f)?.value ?? "").trim();
+  const ano = g("mv-ano"), antigo = id ? quadroItens().find(x => x.id === id) : null;
+  if (ano && !/^\d{4}$/.test(ano)) return toast("Escreva o ano com 4 números, ex.: 2027.");
+  const o = {...(antigo||{}), id: id || ("q" + uid()), texto: g("mv-texto"), obs: g("mv-obs"), area: g("mv-area"), quem: g("mv-quem"), freq: g("mv-freq"),
+    prazo: ano ? (g("mv-mes") ? `${ano}-${g("mv-mes")}` : ano) : "", prio: Number(g("mv-prio")) || 0, sonho: g("mv-sonho"), feito: antigo?.feito || ""};
+  if (!o.texto) return toast("Escreva qual é a meta.");
+  const itens = quadroItens().filter(x => x.id !== o.id); itens.push(o);
+  $("#modalRoot").innerHTML = ""; saveConfig({quadro: {...(cfg().quadro||{}), itens}});
 }
 /* OFX (extrato do Nubank e outros): vira texto simples para a IA */
 function ofxParaTexto(t){
@@ -1901,7 +2041,7 @@ function netBadge(){
 }
 
 /* ---------- avisos no celular (app ntfy) ---------- */
-function meusAvisos(){ return {ativo:false, topico:"", fechamento:true, orcamento:true, semanal:true, contas:true, milhas:true, ...(cfg().perfis?.[S.me]?.avisos || {})}; }
+function meusAvisos(){ return {ativo:false, topico:"", fechamento:true, orcamento:true, semanal:true, contas:true, milhas:true, quadro:true, ...(cfg().perfis?.[S.me]?.avisos || {})}; }
 function salvarAvisos(patch){
   const av = {...meusAvisos(), ...patch};
   if (av.ativo && !av.topico) av.topico = "fina-" + Math.random().toString(36).slice(2,12) + "-" + S.me.normalize("NFD").replace(/[^\w]/g,"").toLowerCase();
@@ -1925,11 +2065,12 @@ function renderAvisos(){
       <li>Instale o app grátis <b>ntfy</b> (Play Store ou App Store).</li>
       <li>No ntfy, toque em <b>+</b> e assine este tópico: <span class="code">${esc(av.topico)}</span> <button class="speak" data-act="copiarTopico">Copiar</button></li>
       <li>Toque em <b>Testar aviso</b> aqui embaixo.</li></ol>
-      ${dobra("avisos", `Quais avisos (${["fechamento","orcamento","semanal","contas","milhas"].filter(k=>av[k]!==false).length} de 5 ligados)`, `${linha("fechamento","Fatura fecha amanhã","um dia antes de cada cartão fechar")}
+      ${dobra("avisos", `Quais avisos (${["fechamento","orcamento","semanal","contas","milhas","quadro"].filter(k=>av[k]!==false).length} de 6 ligados)`, `${linha("fechamento","Fatura fecha amanhã","um dia antes de cada cartão fechar")}
       ${linha("orcamento","Orçamento","quando uma categoria chega a 80% e quando passa")}
       ${linha("semanal","Resumo de domingo","quanto ainda dá pra gastar no mês")}
       ${linha("contas","Conta vence amanhã","contas fixas que ainda não foram marcadas como pagas")}
-      ${linha("milhas","Radar de milhas","transferência com 80% de bônus ou mais para os pontos de vocês")}`)}
+      ${linha("milhas","Radar de milhas","transferência com 80% de bônus ou mais para os pontos de vocês")}
+      ${linha("quadro","Nosso Quadro","combinados do dia (ex.: quinta finanças, sábado encontro) e metas com prazo no mês")}`)}
       <button class="btn ghost" data-act="testarAviso">Testar aviso</button>` : `<p class="sub">Desligado. Ligue para escolher quais avisos quer receber neste celular.</p>`}
   </div></section>`;
 }

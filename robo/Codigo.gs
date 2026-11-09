@@ -435,6 +435,16 @@ function avisosDiarios() {
         });
       } catch (e) {}
     }
+    if (av.quadro !== false) {          // Nosso Quadro: combinados do dia da semana e, no dia 1º, metas com prazo neste mês
+      const itens = ((app.quadro || {}).itens) || [];
+      const meu = i => !i.quem || i.quem === nome || (app.pessoas || ['Daiana', 'Gustavo']).indexOf(i.quem) < 0;
+      const hojeCombina = itens.filter(i => i.freq === String(hoje.getDay()) && meu(i)).map(i => i.texto);
+      if (hojeCombina.length) avisar_(av.topico, 'Nosso Quadro: hoje é dia', hojeCombina.join(' · ') + '.', 'heart');
+      if (hoje.getDate() === 1) {
+        const doMes = itens.filter(i => !i.feito && !i.freq && i.prazo && meu(i) && (i.prazo === ym || (i.prazo === ym.slice(0, 4) && ym.slice(5) === '12'))).map(i => i.texto);
+        if (doMes.length) avisar_(av.topico, 'Nosso Quadro: metas deste mês', doMes.join(' · '), 'dart');
+      }
+    }
     if (av.semanal !== false && hoje.getDay() === 0)
       avisar_(av.topico, 'Resumo da semana', (R.ainda < 0 ? 'O mês passou do limite em ' : 'Ainda dá pra gastar ') + BRL(Math.abs(R.ainda)) + ' este mês.', 'bar_chart');
   });

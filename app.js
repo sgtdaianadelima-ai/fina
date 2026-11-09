@@ -1123,6 +1123,7 @@ document.addEventListener("click", async ev => {
   if (d.repdel) return apagarLista("recorrentes", d.repdel, "repdel");
   if (d.act==="salvarNota"){ return saveConfig({notas:{...(cfg().notas||{}), [S.mes]: ($("#notaMes")?.value||"").trim()}}); }
   if (d.atencao){ const [acao, arg] = d.atencao.split("|"); if (acao === "metas"){ S.metaSeg = "metas"; if (arg) S.mes = arg; return go("metas"); } if (acao === "contas"){ S.dobras = {...(S.dobras||{}), contas:true}; return render(); } if (acao === "fila") return processarFilaIA(); if (acao === "milhas"){ S.metaSeg = "milhas"; return go("metas"); } }
+  if (d.act==="colarQuadro") return colarQuadro();
   if (d.act==="novaMetaVida") return editarMetaVida(null);
   if (d.mvedit) return editarMetaVida(d.mvedit);
   if (d.mvsave != null) return salvarMetaVida(d.mvsave);
@@ -1415,7 +1416,8 @@ function linhaMetaVida(i){
 function renderQuadro(){
   const todos = quadroItens(), modo = S.quadroModo || "lista";
   const seg = `<div class="seg" role="group" aria-label="Ver como"><button data-qmodo="lista" aria-pressed="${modo==="lista"}">Lista</button><button data-qmodo="mural" aria-pressed="${modo==="mural"}">Mural dos sonhos</button></div>`;
-  if (!todos.length) return `${seg}<section class="card"><div class="empty"><p><b>O quadro está vazio.</b></p><p>Toque em <b>+ Meta</b> para colocar o primeiro sonho de vocês.</p></div></section>`;
+  const colar = `<div class="form"><p class="sub">Recebeu as metas prontas num texto? Copie tudo e cole aqui.</p><textarea id="mv-colar" rows="4" placeholder="cole o texto aqui" aria-label="Metas prontas"></textarea><button class="btn ghost" data-act="colarQuadro">Colar no quadro</button></div>`;
+  if (!todos.length) return `${seg}<section class="card"><div class="empty"><p><b>O quadro está vazio.</b></p><p>Toque em <b>+ Meta</b> para colocar o primeiro sonho de vocês.</p></div>${colar}</section>`;
   if (modo === "mural") return seg + renderMural(todos);
   const areasUsadas = AREAS_VIDA.filter(a => todos.some(i => i.area === a[0]));
   const filtro = S.quadroArea || "";
@@ -1436,7 +1438,7 @@ function renderQuadro(){
       ${metas.length ? `<div class="bar"><i style="width:${(feitas/metas.length*100).toFixed(0)}%;background:${a[2]}"></i></div>` : ""}
       <div class="mv-lista">${ordem.map(linhaMetaVida).join("")}</div></section>`;
   }).join("");
-  return `${seg}${chips}${prioCard}${habCard}<div class="settings">${cards}</div><p class="sub" style="text-align:center">Toque numa meta para editar. Fica guardado na planilha, para os dois.</p>`;
+  return `${seg}${chips}${prioCard}${habCard}<div class="settings">${cards}</div><p class="sub" style="text-align:center">Toque numa meta para editar. Fica guardado na planilha, para os dois.</p>${dobra("colarQuadro", "Colar metas prontas", colar)}`;
 }
 function renderMural(todos){
   loadFont("Caveat");
@@ -1483,6 +1485,18 @@ function editarMetaVida(id){
     </div>
     <div class="acts">${id ? `<button class="btn danger" data-mvdel="${esc(id)}">Apagar</button>` : "<span></span>"}<span style="display:flex;gap:8px"><button class="btn ghost" data-close="1">Cancelar</button><button class="btn" data-mvsave="${esc(id||"")}">Salvar</button></span></div>
   </div></div>`;
+}
+/* recebe um texto com as metas (JSON: lista de itens ou {itens, titulo, frase}) e junta ao quadro, sem repetir */
+function colarQuadro(){
+  const t = ($("#mv-colar")?.value || "").trim(); if (!t) return toast("Cole o texto primeiro.");
+  let d; try{ d = JSON.parse(t.slice(t.search(/[\[{]/))); }catch{ return toast("Não entendi esse texto. Copie de novo, inteiro."); }
+  const novos = (Array.isArray(d) ? d : d.itens || []).filter(i => i && i.texto).map(i => ({id: "q" + uid(), area: areaDe(i.area)[0], texto: String(i.texto), obs: String(i.obs||""), quem: String(i.quem||""), prazo: String(i.prazo||""), freq: String(i.freq ?? ""), prio: Number(i.prio)||0, sonho: String(i.sonho||""), feito: ""}));
+  if (!novos.length) return toast("Não achei metas nesse texto.");
+  const tem = new Set(quadroItens().map(i => i.texto.toLowerCase()));
+  const add = novos.filter(i => !tem.has(i.texto.toLowerCase())), itens = [...quadroItens(), ...add];
+  const extra = Array.isArray(d) ? {} : Object.fromEntries(["titulo","frase"].filter(k => d[k]).map(k => [k, String(d[k])]));
+  saveConfig({quadro: {...(cfg().quadro||{}), ...extra, itens}});
+  document.querySelectorAll(".toast").forEach(e => e.remove()); toast(add.length ? `Pronto! ${add.length} metas no quadro 💜` : "Essas metas já estavam no quadro.", 3200);
 }
 function salvarMetaVida(id){
   const g = f => (document.getElementById(f)?.value ?? "").trim();

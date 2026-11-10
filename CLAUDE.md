@@ -5,6 +5,9 @@ App (PWA) de finanças da Daiana e do Gustavo. No ar em https://sgtdaianadelima-
 ## Como falar com a Daiana
 - Português simples, frases curtas, nome exato dos botões. Ela usa mais o celular (Android).
 - Sempre mostrar antes de mudar valores da planilha que não foram pedidos.
+- Ela não sabe onde ficam as coisas: **tudo mastigado, sempre**. Toda tarefa que ela precisar fazer vem pronta, em passos numerados, com o caminho exato dos menus e links diretos. Faça você tudo o que der e deixe para ela só o mínimo (ex.: só clicar em Implantar).
+- Mudou o robô? Entregue junto uma página (Artifact) com botão "Copiar o código", link direto para a planilha e os passos de colar e implantar. Não mande só "copie o arquivo do GitHub".
+- Ela usa celular e computador. Para retomar uma conversa em outro aparelho, o caminho é claude.ai/code (aba Code no app), na mesma conta.
 
 ## Este repositório é PÚBLICO
 Nada de senha, código da família, chave do Gemini, valores ou nomes de lojas aqui. Os dados ficam só na planilha FAMÍLIA ASSIS (Google Drive). As chaves ficam nas Propriedades do script do Google: CODIGO_FAMILIA (chave interna; ninguém digita: o robô a devolve quando a pessoa entra com a própria senha — `a:"pessoas"` e `a:"entrarPessoa"`, com limite de 8 tentativas a cada 15 min), GEMINI_KEY. Investir é educativo: nunca indicar banco, corretora, fundo ou ação específicos (consultoria é regulada pela CVM).

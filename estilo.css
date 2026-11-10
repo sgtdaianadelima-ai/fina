@@ -455,3 +455,13 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 .mural-nota li.feito{text-decoration:line-through;opacity:.55}
 .mural-pe{text-align:center;font:600 22px "Caveat","Segoe Print",cursive;color:var(--ink-2)}
 @media (prefers-reduced-motion:reduce){.mural-nota,.mural-sonho{transform:none}}
+/* Milhas fácil (Início e tela de milhas) */
+.mi-saldo{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.mi-saldo small{display:block;color:var(--ink-2);font-size:13px}
+.mi-saldo b{font:700 22px var(--f-display);color:var(--ink)}
+.mi-passo{display:grid;gap:6px;padding:12px;border-radius:12px;background:var(--surface-2);border-left:4px solid var(--accent);margin:6px 0}
+.mi-passo small{color:var(--ink-2);font-size:14px;line-height:1.4}
+.mi-passo.alerta{border-left-color:var(--gold)}
+.mi-passo.risco{border-left-color:var(--bad)}
+.mi-passo .btn{justify-self:start;margin-top:4px}
+.mi-passos{margin:4px 0 10px;padding-left:20px;display:grid;gap:8px;font-size:15px;line-height:1.45}

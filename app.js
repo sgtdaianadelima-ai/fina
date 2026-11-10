@@ -1,7 +1,8 @@
 
 /* ---------- ícones ---------- */
-const VERSAO_APP = 21;   // igual ao número do sw.js
+const VERSAO_APP = 23;   // igual ao número do sw.js
 const I = {
+  aviao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 13.5 3 11l1.5-1.5 7.5 1L16 6c1-1 2.5-1.5 3.2-.8.7.7.2 2.2-.8 3.2l-4.5 4.5 1 7.5L13.5 22 11 14.5"/><path d="M6 18l-2 2"/></svg>',
   olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
   olhoFechado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
   home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
@@ -55,7 +56,7 @@ const CAT_COLORS = ["#0E7A57","#C98A1B","#3D6FB6","#B24C7C","#6A5ACD","#2E8B8B",
 
 /* ---------- estado ---------- */
 const S = {
-  tab: ["inicio","gastos","assistente","metas","ajustes"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio",
+  tab: ["inicio","gastos","assistente","milhas","metas","ajustes"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio",
   mes: ymOf(new Date()),
   config: null, gastos: [], parcelas: [], entradas: [], separados: [],
   loaded: {config:false, gastos:false, parcelas:false, entradas:false},
@@ -178,7 +179,7 @@ const THEMES = {
             dark: PAL("#0F1613","#17211C","#1E2A24","#2B3A32","#E8EFEA","#A9B8AF","#7A8A81","#3CC593","#E6B04B","#F0806B","#5AD08C","#26342D")},
 };
 const SWATCHES = ["#B4507A","#D9694A","#E0A33A","#4F8A65","#2E8B8B","#3F6FD1","#7457C4","#C2185B","#8D6E63","#2F3437"];
-const HOME_SECTIONS = [["quadro","Nosso Quadro"],["atencao","Pedem sua atenção"],["stats","Números do mês"],["saude","Saúde do mês (50-30-20)"],["atalhos","Atalhos (fatura e falar)"],["contas","Contas do mês (paguei)"],["categorias","Categorias"],["separado","Separado antes de gastar"],["reserva","Reserva de emergência"],["fechamentos","Faturas dos cartões"],["renda","Renda de cada um"]];
+const HOME_SECTIONS = [["quadro","Nosso Quadro"],["milhas","Milhas"],["atencao","Pedem sua atenção"],["stats","Números do mês"],["saude","Saúde do mês (50-30-20)"],["atalhos","Atalhos (fatura e falar)"],["contas","Contas do mês (paguei)"],["categorias","Categorias"],["separado","Separado antes de gastar"],["reserva","Reserva de emergência"],["fechamentos","Faturas dos cartões"],["renda","Renda de cada um"]];
 const THEME_DEFAULT = {preset:"nos", modo:"auto", accent:"", fd:"", fb:"", tamanho:"m", cantos:"suaves", cartoes:"plano", secoes:Object.fromEntries(HOME_SECTIONS.map(([k])=>[k,true]))};
 function personTheme(nome){ const t = (S.config && S.config.perfis && S.config.perfis[nome] && S.config.perfis[nome].tema) || {}; return {...THEME_DEFAULT, ...t, secoes:{...THEME_DEFAULT.secoes, ...(t.secoes||{})}}; }
 function themeNow(){ return personTheme(S.me); }
@@ -248,6 +249,7 @@ const TABS = [
   {id:"inicio", t:"Início", i:I.home},
   {id:"gastos", t:"Gastos", i:I.list},
   {id:"assistente", t:"Fina", i:I.cam, fab:true},
+  {id:"milhas", t:"Milhas", i:I.aviao},
   {id:"metas", t:"Metas", i:I.goal},
   {id:"ajustes", t:"Ajustes", i:I.gear},
 ];
@@ -274,7 +276,7 @@ function render(){
   if (!S.config && S.erro){ v.innerHTML = `<div class="card"><h2>Não consegui abrir os dados</h2><p class="sub">${esc(S.erro)}</p><button class="btn" data-act="recarregar">Tentar de novo</button></div>`; return; }
   if (!ready && S.tab !== "assistente"){ v.innerHTML = `<div class="card"><p class="sub">Carregando suas finanças…</p></div>`; return; }
   if (!S.me || !S.desbloqueado) { renderPerfil(); return; }
-  ({inicio:renderInicio, gastos:renderGastos, assistente:renderAssistente, metas:renderMetas, ajustes:renderAjustes})[S.tab]();
+  ({inicio:renderInicio, gastos:renderGastos, assistente:renderAssistente, milhas:renderTelaMilhas, metas:renderMetas, ajustes:renderAjustes})[S.tab]();
 }
 
 function renderInicio(){
@@ -308,6 +310,7 @@ function renderInicio(){
     <div class="legend num"><span>${Math.round(usado*100)}% da renda já comprometida</span><span>entrou ${mv(M.entrou)}</span></div>
   </section>
   ${on("quadro") ? cardQuadroInicio() : ""}
+  ${on("milhas") ? cardMilhasInicio() : ""}
   ${on("atencao") ? cardAtencao(M, mv) : ""}
   ${on("stats")?`<div class="stats">
     <div class="stat s-entrou"><small>Entrou no mês</small><b class="num">${mv(M.entrou)}</b><span>${S.ver ? `${money0(salario)} de salário` : "salários, vales e extras"}</span></div>
@@ -388,10 +391,10 @@ function renderMetas(){
     const iy = H-28 - x.entrou/maxV*(H-48);
     return rects + (x.entrou?`<line x1="${xs-4}" x2="${xs+w+4}" y1="${iy}" y2="${iy}" stroke="var(--ink)" stroke-width="2"/>`:"") + `<text x="${xs+w/2}" y="${H-8}" text-anchor="middle" font-size="12" fill="var(--ink-2)">${mLabel(x.ym).slice(0,3)}</text>`;
   }).join("");
-  const segMetas = `<div class="seg aj-abas" role="tablist" aria-label="Metas ou investir">${[["quadro","Quadro"],["metas","Metas"],["futuro","Futuro"],["investir","Investir"],["milhas","Milhas"],["dividas","Dívidas"]].map(([k,t])=>`<button role="tab" data-metaseg="${k}" aria-pressed="${(S.metaSeg||"quadro")===k}">${t}</button>`).join("")}</div>`;
+  const segMetas = `<div class="seg aj-abas" role="tablist" aria-label="Metas ou investir">${[["quadro","Quadro"],["metas","Metas"],["futuro","Futuro"],["investir","Investir"],["dividas","Dívidas"]].map(([k,t])=>`<button role="tab" data-metaseg="${k}" aria-pressed="${(S.metaSeg||"quadro")===k}">${t}</button>`).join("")}</div>`;
   if (!S.metaSeg || S.metaSeg === "quadro"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>${esc(cfg().pessoas.join(" e "))}</small><h1>Nosso Quadro</h1></div><button class="btn" data-act="novaMetaVida">${I.plus}Meta</button></div>${segMetas}${renderQuadro()}`; return; }
   if (S.metaSeg === "investir"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>Seu dinheiro trabalhando</small><h1>Investir</h1></div></div>${segMetas}${renderInvestir()}`; return; }
-  if (S.metaSeg === "milhas"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>Pontos que viram viagem</small><h1>Milhas</h1></div>${monthSwitch()}</div>${segMetas}${renderMilhas()}`; return; }
+  if (S.metaSeg === "milhas"){ S.metaSeg = "quadro"; return go("milhas"); }   // milhas agora tem aba própria
   if (S.metaSeg === "dividas"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>Para ficar livre de juros</small><h1>Dívidas</h1></div></div>${segMetas}${renderDividas()}`; return; }
   if (S.metaSeg === "futuro"){ $("#view").innerHTML = `<div class="top"><div class="hello"><small>O que já está comprometido</small><h1>Próximos meses</h1></div></div>${segMetas}${renderFuturo()}`; return; }
   $("#view").innerHTML = `
@@ -585,6 +588,8 @@ function buildPrompt(text, nImgs){
     metas_da_vida: quadroItens().map(i => ({area: areaDe(i.area)[1], meta: i.texto, detalhe: i.obs||"", quem: i.quem||"os dois", prazo: i.prazo||"", habito: freqTxt(i.freq), prioridade: i.prio||"", feito: !!i.feito})),
     perfil_investidor: cfg().perfilInvest?.perfil || "não respondido",
     saude_do_mes: saudeDoMes(M),
+    meta_viagem_milhas: progressoMeta(),
+    milhas_por_viagem_aprox: "Promoção, classe econômica, por pessoa e por trecho: São Paulo–Rio/Sul 4 a 8 mil; São Paulo–Nordeste 5 a 12 mil; Brasil–Europa 35 a 60 mil (Smiles/Azul/LATAM). Fora de promoção pode dobrar. Taxa de embarque à parte (uns R$ 40 a R$ 100 por trecho no Brasil). Pontos do banco viram milhas 1 para 1, ou mais com bônus.",
     milhas: {cartoes: resumoPontos(M).linhas.map(x => ({cartao:x.nome, programa:x.programa, gasto_mes:+x.total.toFixed(2), pontos_mes:Math.round(x.pontos)})), saldos: (cfg().milhas?.saldos||[]), promocoes_ativas: (ls.get("radar", {}).itens||[]).filter(x=>x.tipo==="transferencia").slice(0,8).map(x=>`${x.data}: ${x.titulo}`), regras:"Pontos do banco valem mais transferidos com bônus de 80%+ para companhia aérea, com viagem em mente. Trocar por produto ou dinheiro costuma valer pouco (abaixo de R$ 20 por mil pontos). Nunca gastar a mais para pontuar."},
     dividas: (cfg().dividas||[]).map(d => ({nome:d.nome, saldo:d.saldo, parcela:d.parcela, juros_mes:d.juros, quita_em_meses: quitacao(d).meses})),
     separar_no_mes: {planejado: {dizimo:+M.sep.dizimo.toFixed(2), reserva:+M.sep.reserva.toFixed(2), investimentos:+M.sep.investimentos.toFixed(2)}, feito: M.feito},
@@ -612,7 +617,7 @@ Regras de extração:
 
 Fatura de cartão: além dos itens, informe "fatura": {"cartao": nome da lista de formas, "total": total da fatura em R$ (o "total a pagar" ou "total desta fatura"; se não aparecer, null)}. Liste TODAS as compras e parcelas da fatura, mesmo as que já parecem lançadas: o app confere sozinho o que é repetido.
 Perguntas do tipo "posso comprar X?": use proximos_meses (quanto sobra para o dia a dia em cada mês) e diga com clareza se cabe, mês a mês, sem enrolar. Se for parcelado, some a parcela em cada mês.
-Perguntas sobre milhas e pontos: use "milhas" dos dados. Diga se vale a pena com contas simples (R$ por mil pontos ou milhas), cite a promoção ativa se houver e lembre de não gastar a mais para pontuar.
+Perguntas sobre milhas e pontos: use "milhas", "meta_viagem_milhas" e "milhas_por_viagem_aprox". Ela é leiga: palavras simples, sem siglas, no máximo 4 frases. Para "quantas milhas preciso para ir a X?", dê uma faixa para o casal ida e volta, diga quanto eles já têm (pontos com bônus de 80% contam 1,8) e quanto falta, e o próximo passo. Diga se vale a pena com contas simples (R$ por mil pontos ou milhas), cite a promoção ativa se houver e lembre de não gastar a mais para pontuar. Se não houver saldo cadastrado, peça para ela colocar na aba Milhas.
 Perguntas sobre investimentos: seja educativa. Use taxas_de_hoje e objetivos. Diga o TIPO de investimento que costuma servir (ex.: "Tesouro Selic ou CDB com liquidez diária que pague 100% do CDI ou mais, com FGC") e mostre contas de rendimento. Nunca indique banco, corretora, fundo, ação ou cripto específicos, nem prometa rentabilidade. Lembre que a reserva de emergência vem antes de bolsa.
 
 Responda SOMENTE com JSON neste formato:
@@ -1139,7 +1144,7 @@ document.addEventListener("click", async ev => {
   if (d.repsave != null) return salvarRep(d.repsave);
   if (d.repdel) return apagarLista("recorrentes", d.repdel, "repdel");
   if (d.act==="salvarNota"){ return saveConfig({notas:{...(cfg().notas||{}), [S.mes]: ($("#notaMes")?.value||"").trim()}}); }
-  if (d.atencao){ const [acao, arg] = d.atencao.split("|"); if (acao === "metas"){ S.metaSeg = "metas"; if (arg) S.mes = arg; return go("metas"); } if (acao === "contas"){ S.dobras = {...(S.dobras||{}), contas:true}; return render(); } if (acao === "fila") return processarFilaIA(); if (acao === "milhas"){ S.metaSeg = "milhas"; return go("metas"); } }
+  if (d.atencao){ const [acao, arg] = d.atencao.split("|"); if (acao === "metas"){ S.metaSeg = "metas"; if (arg) S.mes = arg; return go("metas"); } if (acao === "contas"){ S.dobras = {...(S.dobras||{}), contas:true}; return render(); } if (acao === "fila") return processarFilaIA(); if (acao === "milhas") return go("milhas"); }
   if (d.act==="colarQuadro") return colarQuadro();
   if (d.act==="novaMetaVida") return editarMetaVida(null);
   if (d.mvedit) return editarMetaVida(d.mvedit);
@@ -1150,6 +1155,11 @@ document.addEventListener("click", async ev => {
   if (d.qmodo){ S.quadroModo = d.qmodo; return render(); }
   if (d.qarea != null){ S.quadroArea = d.qarea; return render(); }
   if (d.act==="abrirQuadro"){ S.metaSeg = "quadro"; return go("metas"); }
+  if (d.act==="abrirMilhas") return go("milhas");
+  if (d.act==="metaMilhas") return editarMetaMilhas();
+  if (d.metamilhas != null){ const o = METAS_MILHAS[Number(d.metamilhas)]; if (o){ $("#m-nome").value = o[0]; $("#m-milhas").value = o[1].toLocaleString("pt-BR"); } return; }
+  if (d.act==="salvarMetaMilhas") return salvarMetaMilhas();
+  if (d.act==="tirarMetaMilhas"){ $("#modalRoot").innerHTML = ""; return saveConfig({milhas:{...(cfg().milhas||{}), meta:null}}); }
   if (d.objedit) return editarObjetivo(d.objedit);
   if (d.objsave != null) return salvarObjetivo(d.objsave);
   if (d.objdel) return apagarObjetivo(d.objdel);
@@ -1158,6 +1168,7 @@ document.addEventListener("click", async ev => {
 document.addEventListener("change", ev => {
   const t = ev.target;
   if (t.dataset.pago != null){ marcarPago(t.dataset.pago, t.checked); return; }
+  if (t.id === "s-print" && t.files?.[0]){ lerSaldoPrint(t.files[0]); return; }
   if (t.dataset.tipocat != null){ saveConfig({tipoCat:{...(cfg().tipoCat||{}), [t.dataset.tipocat]: t.value}}); return; }
   if (t.dataset.mg != null){ const v = {...(cfg().consignado||{}), [t.dataset.mg]: num(t.value)}; saveConfig({consignado: v}); return; }
   if (t.dataset.perfilq != null){ S.perfilResp = {...(S.perfilResp||{}), [t.dataset.perfilq]: Number(t.value)}; return; }
@@ -1760,7 +1771,72 @@ function resumoPontos(M){
 const valorPontos = (prog, qtd) => qtd * (num(cfg().milhas?.valores?.[prog]) || VALOR_REF[prog] || 15) / 1000;
 async function atualizarRadar(forcar){
   const r0 = ls.get("radar", null); if (!forcar && r0 && Date.now() - r0.quando < 3*36e5) return;
-  try{ const r = await api({a:"promos", forcar: !!forcar}); if (r.ok){ ls.set("radar", {quando: Date.now(), itens: r.itens || [], ok:true}); if (S.metaSeg === "milhas" && S.tab === "metas") render(); return; } ls.set("radar", {quando: Date.now(), itens: r0?.itens || [], ok:false, erro: r.erro}); }catch{}
+  try{ const r = await api({a:"promos", forcar: !!forcar}); if (r.ok){ ls.set("radar", {quando: Date.now(), itens: r.itens || [], ok:true}); if (S.tab === "milhas") render(); return; } ls.set("radar", {quando: Date.now(), itens: r0?.itens || [], ok:false, erro: r.erro}); }catch{}
+}
+const ehMilha = prog => /Azul|Smiles|LATAM|TAP/.test(prog);
+function carteiraMilhas(){
+  const sal = cfg().milhas?.saldos || [];
+  const pontos = sal.filter(x => !ehMilha(x.programa)).reduce((s,x)=>s+num(x.saldo),0), milhas = sal.filter(x => ehMilha(x.programa)).reduce((s,x)=>s+num(x.saldo),0);
+  return {sal, pontos, milhas, valor: sal.reduce((s,x)=>s+valorPontos(x.programa, num(x.saldo)),0)};
+}
+/* uma frase só: o que fazer agora com as milhas */
+function proximoPassoMilhas(){
+  const c = cfg(), W = carteiraMilhas(), hoje = today();
+  const vence = W.sal.filter(x => x.validade).map(x => ({...x, dias: Math.round((new Date(x.validade) - new Date(hoje))/864e5)})).filter(x => x.dias >= 0 && x.dias <= 60).sort((a,b)=>a.dias-b.dias)[0];
+  if (vence) return {tom:"risco", t:`${num(vence.saldo).toLocaleString("pt-BR")} ${ehMilha(vence.programa) ? "milhas" : "pontos"} da ${vence.programa} vencem em ${vence.dias} dias`, s:"Use ou transfira antes de perder."};
+  const origens = c.milhas?.origens || ["Itaú","Livelo","PortoPlus"];
+  const boa = (ls.get("radar", {}).itens||[]).find(x => x.tipo === "transferencia" && x.bonus >= 80 && x.origens.some(o => origens.includes(o)) && Date.now() - new Date(x.data).getTime() < 3*864e5);
+  if (boa) return {tom:"bom", t:`Promoção boa: ${boa.bonus}% de bônus${boa.ultimoDia ? " (último dia)" : ""}`, s:`${boa.titulo}. Só transfira se já tiver uma viagem em vista.`, link: boa.link};
+  if (!W.sal.length) return {tom:"alerta", t:"Coloque quantos pontos vocês têm", s:"Abra o app do Itaú e o da Porto, veja o saldo de pontos e toque em Colocar saldo.", act:"novoSaldo", b:"Colocar saldo"};
+  return {tom:"ok", t:"Tudo certo: só guardar", s:"Deixem os pontos no banco e esperem uma promoção de 80% ou mais. A Fina avisa."};
+}
+function passoHTML(P){ return `<div class="mi-passo ${P.tom}"><b>${esc(P.t)}</b><small>${esc(P.s)}</small>${P.act ? `<button class="btn" data-act="${P.act}">${I.plus}${esc(P.b)}</button>` : P.link ? `<a class="btn ghost" href="${esc(P.link)}" target="_blank" rel="noopener">Ver a promoção</a>` : ""}</div>`; }
+function cardMilhasInicio(){
+  atualizarRadar();
+  const W = carteiraMilhas(), R = resumoPontos(month(S.mes));
+  const saldo = W.sal.length ? `<div class="mi-saldo"><span><small>Vocês têm</small><b class="num">${[W.pontos ? `${Math.round(W.pontos).toLocaleString("pt-BR")} pontos` : "", W.milhas ? `${Math.round(W.milhas).toLocaleString("pt-BR")} milhas` : ""].filter(Boolean).join(" + ")}</b></span><span class="sub num">${S.ver ? `vale uns ${money0(W.valor)}` : ""}</span></div>` : "";
+  return `<section class="card mi-inicio"><div class="head"><h2>✈️ Milhas</h2><button class="speak" data-act="abrirMilhas">Ver tudo</button></div>
+    ${saldo}
+    ${R.pontos >= 1 ? `<p class="sub">Neste mês os cartões já renderam <b class="num">+${Math.round(R.pontos).toLocaleString("pt-BR")} pontos</b>.</p>` : ""}
+    ${metaHTML(true)}
+    ${passoHTML(proximoPassoMilhas())}
+    ${progressoMeta() ? "" : `<button class="btn ghost" data-act="metaMilhas">${I.plus}Escolher uma viagem para juntar</button>`}
+  </section>`;
+}
+/* ---------- meta de viagem em milhas ---------- */
+const inteiro = v => Number(String(v ?? "").split(",")[0].replace(/\D/g, "")) || 0;   // pontos e milhas: "23.400" = 23400
+const BONUS_PADRAO = 0.8;   // pontos do banco contam com 80% de bônus (promoção comum)
+const METAS_MILHAS = [["Nordeste para 2 (ida e volta)", 40000], ["Rio ou Sul para 2 (ida e volta)", 25000], ["Europa para 2 (ida e volta)", 180000]];
+function progressoMeta(){
+  const m = cfg().milhas?.meta; if (!m || !num(m.milhas)) return null;
+  const W = carteiraMilhas(), tem = Math.round(W.milhas + W.pontos * (1 + BONUS_PADRAO));
+  const mes = resumoPontos(month(ymOf(new Date()))).pontos * (1 + BONUS_PADRAO);
+  const falta = Math.max(0, num(m.milhas) - tem);
+  return {nome: m.nome, alvo: num(m.milhas), tem, falta, p: Math.min(1, tem / num(m.milhas)), meses: falta && mes >= 1 ? Math.ceil(falta / mes) : null};
+}
+function metaHTML(curto){
+  const G = progressoMeta();
+  if (!G) return curto ? "" : `<p class="sub">Escolha uma viagem e a Fina mostra quanto falta.</p><button class="btn" data-act="metaMilhas">${I.plus}Escolher viagem</button>`;
+  return `<div class="mi-meta"><div class="line"><span>${curto ? "Meta: " : ""}<b>${esc(G.nome)}</b></span><span class="sub num">${G.tem.toLocaleString("pt-BR")} de ${G.alvo.toLocaleString("pt-BR")}</span></div>
+    <div class="bar"><i style="width:${(G.p*100).toFixed(1)}%"></i></div>
+    <small class="sub">${G.falta ? `Faltam ${G.falta.toLocaleString("pt-BR")} milhas${G.meses ? `. No ritmo de agora, uns ${G.meses} ${G.meses === 1 ? "mês" : "meses"}` : ""}.` : "Com uma promoção de 80% de bônus, já dá! Esperem a promoção e transfiram."}</small>
+    ${curto ? "" : `<small class="sub" style="font-size:12px">Os pontos do banco contam como se fossem com bônus de 80% (10 mil pontos = 18 mil milhas). Os números são aproximados.</small><button class="btn ghost" data-act="metaMilhas">Trocar a viagem</button>`}</div>`;
+}
+function editarMetaMilhas(){
+  const m = cfg().milhas?.meta || {nome:"", milhas:""};
+  $("#modalRoot").innerHTML = `<div class="overlay" data-close="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="Viagem com milhas"><h2>Para onde vocês querem ir?</h2>
+    <p class="sub">Toque numa ideia ou escreva a sua. As milhas são uma média de promoção, na classe econômica.</p>
+    <div class="chips" style="margin:8px 0 12px">${METAS_MILHAS.map((o,k) => `<button class="chip" data-metamilhas="${k}">${esc(o[0])} · ${(o[1]/1000)} mil</button>`).join("")}</div>
+    <div class="fgrid"><label class="full">Viagem<input id="m-nome" value="${esc(m.nome)}" placeholder="ex.: Maceió em julho"></label>${campoNum("m-milhas","Milhas que precisa", m.milhas)}</div>
+    <div class="acts">${m.nome ? `<button class="btn danger" data-act="tirarMetaMilhas">Tirar meta</button>` : "<span></span>"}<span style="display:flex;gap:8px"><button class="btn ghost" data-close="1">Cancelar</button><button class="btn" data-act="salvarMetaMilhas">Salvar</button></span></div></div></div>`;
+}
+function salvarMetaMilhas(){
+  const nome = $("#m-nome").value.trim(), milhas = inteiro($("#m-milhas").value);
+  if (!nome || !milhas) return toast("Escreva a viagem e as milhas");
+  $("#modalRoot").innerHTML = ""; saveConfig({milhas:{...(cfg().milhas||{}), meta:{nome, milhas}}});
+}
+function renderTelaMilhas(){
+  $("#view").innerHTML = `<div class="top"><div class="hello"><small>Pontos que viram viagem</small><h1>Milhas</h1></div>${monthSwitch()}</div>${renderMilhas()}`;
 }
 function veredito(rPorMil, bom, ok){ return rPorMil >= bom ? ["bom","Vale a pena"] : rPorMil >= ok ? ["alerta","Mais ou menos"] : ["risco","Não vale"]; }
 function renderMilhas(){
@@ -1768,6 +1844,15 @@ function renderMilhas(){
   const c = cfg(), M = month(S.mes), R = resumoPontos(M), mil = c.milhas || {};
   const itau = c.cartoes.find(k => /ita[uú]/i.test(k.nome)); const gItau = itau ? (R.linhas.find(x => x.nome === itau.nome)?.total || 0) : 0;
   const metaIsencao = num(mil.metaIsencao) || 8000;
+  // 0. o essencial, para quem está começando
+  const W = carteiraMilhas();
+  const cardFacil = `<section class="card"><div class="head"><h2>Milhas sem complicação</h2></div>
+    ${W.sal.length ? `<div class="mi-saldo"><span><small>Vocês têm</small><b class="num">${[W.pontos ? `${Math.round(W.pontos).toLocaleString("pt-BR")} pontos` : "", W.milhas ? `${Math.round(W.milhas).toLocaleString("pt-BR")} milhas` : ""].filter(Boolean).join(" + ")}</b></span><span class="sub num">vale uns ${money0(W.valor)}</span></div>` : ""}
+    <div class="flabel">O que fazer agora</div>${passoHTML(proximoPassoMilhas())}
+    <div class="flabel">Nossa viagem com milhas</div>${metaHTML(false)}
+    <div class="flabel">Como funciona, em 3 passos</div>
+    <ol class="mi-passos"><li><b>Junta.</b> Cada compra no cartão Itaú Black vira pontos. Use ele no dia a dia e pague a fatura inteira.</li><li><b>Espera.</b> Deixe os pontos no banco. De vez em quando a Azul, a Smiles ou a LATAM dão bônus: 10 mil pontos viram 18 mil milhas ou mais. A Fina avisa.</li><li><b>Usa.</b> Com uma viagem em vista, transfira os pontos no bônus e troque as milhas pela passagem.</li></ol>
+    <p class="sub">Para ter ideia: um trecho de São Paulo para o Nordeste em promoção custa uns 5 a 10 mil milhas por pessoa, mais a taxa de embarque.</p></section>`;
   // 1. este mês
   const cardMes = `<section class="card"><div class="head"><h2>Pontos de ${esc(mLabel(S.mes).split(" ")[0])}</h2><span class="sub num">${Math.round(R.pontos).toLocaleString("pt-BR")} pontos</span></div>
     <div class="split num">${R.linhas.map(x => `<div class="line"><span>${esc(x.nome)}<small class="muted" style="display:block">${x.pts ? `${String(x.pts).replace(".",",")} ponto(s) por dólar · ${esc(x.programa)}` : "não ganha pontos"}</small></span><b>${x.pts ? Math.round(x.pontos).toLocaleString("pt-BR") : "0"}<small class="muted" style="display:block">${money0(x.total)}</small></b></div>`).join("") || `<p class="sub">Nenhum gasto no cartão neste mês.</p>`}</div>
@@ -1781,7 +1866,7 @@ function renderMilhas(){
   // 3. carteira
   const saldos = mil.saldos || [];
   const hoje = today();
-  const cardCarteira = `<section class="card"><div class="head"><h2>Carteira de pontos e milhas</h2><span class="sub num">≈ ${money0(saldos.reduce((s,x)=>s+valorPontos(x.programa, num(x.saldo)),0))}</span></div>
+  const cardCarteira = `<section class="card"><div class="head"><h2>Quanto vocês têm em cada lugar</h2><span class="sub num">≈ ${money0(saldos.reduce((s,x)=>s+valorPontos(x.programa, num(x.saldo)),0))}</span></div>
     ${saldos.length ? saldos.map(x => { const dias = x.validade ? Math.round((new Date(x.validade) - new Date(hoje))/864e5) : null;
       return `<button class="item" data-saldoedit="${esc(x.id)}"><span class="t"><b>${esc(x.programa)}${x.quem ? " · " + esc(x.quem) : ""}</b><span class="${dias!=null && dias < 60 ? "neg" : ""}">${num(x.saldo).toLocaleString("pt-BR")} ${/Azul|Smiles|LATAM|TAP/.test(x.programa) ? "milhas" : "pontos"}${dias!=null ? ` · ${dias < 0 ? "venceu" : `vence em ${dias} dias`}` : ""}</span></span><span class="v num">≈ ${money0(valorPontos(x.programa, num(x.saldo)))}</span></button>`; }).join("") : `<p class="sub">Coloque quanto vocês têm em cada programa (veja nos apps: Itaú, Porto, Livelo, Azul, Smiles, LATAM, Premmia…). A Fina avisa antes de vencer.</p>`}
     <button class="btn ghost" data-act="novoSaldo">${I.plus}Adicionar saldo</button>
@@ -1792,7 +1877,7 @@ function renderMilhas(){
   const paraVoces = its.filter(x => x.tipo === "transferencia" && x.origens.some(o => origens.includes(o)));
   const outras = its.filter(x => !paraVoces.includes(x)).slice(0, 8);
   const linhaPromo = x => `<a class="promo ${x.bonus >= 80 ? "top" : ""}" href="${esc(x.link)}" target="_blank" rel="noopener"><span class="pct">${x.bonus}%</span><span class="t"><b>${esc(x.titulo)}</b><small>${esc(x.data.split("-").reverse().join("/"))}${x.ultimoDia ? " · último dia" : ""}${x.tipo === "compra" ? " · compra de pontos" : ""}</small></span></a>`;
-  const cardRadar = `<section class="card"><div class="head"><h2>Radar de promoções</h2><span class="sub">${rad.quando ? "atualizado " + new Date(rad.quando).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) : ""}</span></div>
+  const cardRadar = `<section class="card"><div class="head"><h2>Promoções de bônus</h2><span class="sub">${rad.quando ? "atualizado " + new Date(rad.quando).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) : ""}</span></div>
     ${rad.ok === false && !its.length ? `<p class="sub">Falta atualizar o robô da planilha para o radar funcionar.</p>` : ""}
     <div class="flabel">Para os pontos de vocês (${esc(origens.join(", "))})</div>
     ${paraVoces.length ? paraVoces.slice(0,8).map(linhaPromo).join("") : `<p class="sub">Nenhuma transferência com bônus para os pontos de vocês nos últimos dias. Calma: elas aparecem quase todo mês. O robô olha todo dia e avisa no celular quando passar de 80%.</p>`}
@@ -1811,26 +1896,26 @@ function renderMilhas(){
   if (modo === "passagem"){ const pr = num(k.precoPass), mi = num(k.milhasPass), tx = num(k.taxas), v = pr && mi ? (pr - tx)/mi*1000 : 0; const prog = k.progPass || "Azul Fidelidade"; const ref = num(c.milhas?.valores?.[prog]) || VALOR_REF[prog] || 15; const [tom, txt] = veredito(v, ref*1.4, ref);
     calcCorpo = `<div class="simin"><label>Preço da passagem em dinheiro (R$)<input data-calcin="precoPass" inputmode="decimal" value="${pr||""}"></label><label>Milhas que pedem<input data-calcin="milhasPass" inputmode="decimal" value="${mi||""}"></label><label>Taxas pagas em dinheiro (R$)<input data-calcin="taxas" inputmode="decimal" value="${tx||""}"></label><label>Programa<select data-calcin="progPass">${["Azul Fidelidade","Smiles","LATAM Pass","TAP Miles&Go"].map(x=>`<option ${prog===x?"selected":""}>${x}</option>`).join("")}</select></label></div>
     ${v ? `<div class="veredito ${tom}"><b>${txt}</b> · cada mil milhas renderiam ${money(v)} (referência da ${esc(prog)}: ${money(ref)}). ${tom === "bom" ? "Use as milhas." : tom === "risco" ? "Melhor pagar em dinheiro e guardar as milhas." : "Compare outras datas."}</div>` : ""}`; }
-  const cardCalc = `<section class="card"><div class="head"><h2>Vale a pena?</h2></div>
-    <div class="seg aj-abas">${[["produto","Trocar por produto"],["transferir","Transferir"],["passagem","Emitir passagem"]].map(([m,t]) => `<button data-calc="${m}" aria-pressed="${modo===m}">${t}</button>`).join("")}</div>${calcCorpo}</section>`;
+  const cardCalc = `
+    <div class="seg aj-abas">${[["produto","Trocar por produto"],["transferir","Transferir"],["passagem","Emitir passagem"]].map(([m,t]) => `<button data-calc="${m}" aria-pressed="${modo===m}">${t}</button>`).join("")}</div>${calcCorpo}`;
   // 6. onde ganhar pontos
   const desde = addM(ymOf(new Date()), -3), recentes = S.gastos.filter(g => g.data >= desde + "-01");
   const achados = PARCEIROS.map(pc => { const gs = recentes.filter(g => pc.re.test(g.descricao||"")); return {...pc, vezes: gs.length, total: gs.reduce((s,g)=>s+num(g.valor),0)}; });
   const usados = achados.filter(x => x.vezes).sort((a,b)=>b.total-a.total), outros = achados.filter(x => !x.vezes);
   const linhaP = x => `<div class="parc"><span><b>${esc(x.nome)}</b><small>${esc(x.programa)} · ${esc(x.como)}</small></span>${x.vezes ? `<span class="num sub">${x.vezes}x · ${money0(x.total)}</span>` : ""}</div>`;
-  const cardOnde = `<section class="card"><div class="head"><h2>Onde ganhar pontos</h2><span class="sub">além do cartão</span></div>
+  const cardOnde = `
     ${usados.length ? `<div class="flabel">Lugares onde vocês já compram (últimos 3 meses)</div>${usados.map(linhaP).join("")}` : ""}
     ${dobra("outrosParc", "Outros programas que valem em São Paulo", outros.map(linhaP).join(""))}
-    <p class="sub">Dá para somar: pagar com o cartão que pontua <b>e</b> usar o app do lugar. Compras pela internet: entre pelo site da Livelo ou da Esfera antes de ir para a loja.</p></section>`;
+    <p class="sub">Dá para somar: pagar com o cartão que pontua <b>e</b> usar o app do lugar. Compras pela internet: entre pelo site da Livelo ou da Esfera antes de ir para a loja.</p>`;
   // 7. benefícios dos cartões
-  const cardBenef = `<section class="card"><div class="head"><h2>Benefícios dos seus cartões</h2></div>
+  const cardBenef = `
     ${dobra("bItau", "Itaú Uniclass Black (Mastercard Black)", `<ul class="guia"><li><b>Pontos:</b> 2 por dólar, ou 2,5 com fatura a partir de R$ 4 mil. Vão direto para Azul, LATAM, Smiles e TAP (não precisa de Livelo), quase sempre com bônus em promoção.</li><li><b>Anuidade:</b> de graça com R$ 8 mil por mês ou R$ 50 mil investidos no Itaú. Se não bater, peça desconto ao gerente antes de cancelar.</li><li><b>Salas VIP:</b> até 4 acessos por ano para quem bate o gasto mínimo (veja no app do Itaú). Em Guarulhos (T3) há salas Mastercard Black.</li><li><b>Mastercard Surpreenda:</b> cadastre o cartão no site; cada compra vale 1 ponto, e 10 pontos viram "pague 1, leve 2" (cinema, restaurantes).</li><li><b>Seguros:</b> pagando a passagem com o cartão, costuma vir seguro viagem e de bagagem. Emita o bilhete no site da Mastercard antes de viajar.</li></ul>`)}
     ${dobra("bPorto", "Porto Platinum", `<ul class="guia"><li><b>Pontos:</b> 1,5 por dólar no PortoPlus, que <b>vencem em 2 anos</b>. Só transfere a partir de 20 mil pontos (para LATAM, Azul ou TAP, 1 para 1), pelo WhatsApp da Porto.</li><li><b>Plano:</b> vejam o saldo no app da Porto. Se tiver 20 mil ou mais, transfiram numa promoção antes de parar de usar. Se tiver menos, usem no próprio PortoPlus antes de vencer.</li><li><b>Anuidade:</b> uns R$ 708 por ano depois do 1º ano grátis. Sem uso, vale cancelar ou pedir isenção.</li></ul>`)}
     ${dobra("bSant", "Santander Free (Daiana)", `<ul class="guia"><li><b>Não ganha pontos.</b> Serve só de reserva, sem anuidade. Para usar o dia de fechamento diferente sem perder pontos, prefira pedir ao Itaú para mudar o vencimento da fatura.</li></ul>`)}
     ${dobra("bVip", "“Embarque VIP” em Guarulhos: o que é", `<ul class="guia"><li><b>Visa Infinite Fast Pass:</b> fila exclusiva no raio-x do Terminal 3 para cartões Visa Infinite. É o que costuma aparecer como "embarque VIP".</li><li><b>Salas VIP:</b> no T3 há a Visa Infinite Lounge e salas Mastercard Black, entre outras. O acesso grátis depende do banco do cartão.</li><li>O Itaú tem a versão <b>Uniclass Infinite (Visa)</b> com os mesmos pontos: dá para pedir ao gerente a troca de bandeira se quiserem o Fast Pass.</li></ul>`)}
-  </section>`;
+  `;
   // 8. cartões para tentar
-  const cardNovos = `<section class="card"><div class="head"><h2>Outros cartões: vale tentar?</h2></div>
+  const cardNovos = `
     <p class="sub">Revisei a lista que vocês estudaram. Com o gasto de vocês (uns R$ 9 mil por mês), <b>o melhor é um cartão principal</b> com a anuidade de graça. Abrir vários divide o gasto e faz perder isenção.</p>
     ${[["Itaú Uniclass Black","Ficar","Já têm. 2,5 pontos por dólar e anuidade de graça com R$ 8 mil por mês. Correção da anotação: o Itaú não manda para a Livelo, mas manda direto para Azul, LATAM, Smiles e TAP, com bônus frequentes de até 120%. Então compensa, sim."],
       ["Bradesco Visa Infinite","Talvez","2 pontos Livelo por dólar, Visa Infinite (Fast Pass e salas Visa em Guarulhos). Aproveitem quando estiver com 1º ano grátis no app e peçam o adicional junto. Depois, a isenção pede uns R$ 5 mil por mês (não o de R$ 3 mil da anotação): só mantenham se não tirar gasto do Itaú."],
@@ -1840,15 +1925,20 @@ function renderMilhas(){
       ["Cartões de companhia (Smiles, Azul, LATAM)","Não agora","Os pontos ficam presos em uma companhia só. O Itaú é mais flexível."],
       ["Pão de Açúcar Black","Não","Anuidade sem vantagem que o Itaú já não dê."],
       ["Nubank Ultravioleta","Não agora","2,2 pontos por dólar, mas pede gasto alto ou dinheiro investido no Nubank: dividiria o gasto com o Itaú."]].map(([n,v,t]) => `<div class="novo"><span><b>${esc(n)}</b><small>${esc(t)}</small></span><span class="tag ${v==="Ficar"?"bom":v==="Talvez"||v==="Plano B"?"alerta":"risco"}">${esc(v)}</span></div>`).join("")}
-    <p class="sub" style="font-size:12px">Regras de 2026 tiradas de sites de cartões; mudam com frequência. A aprovação depende de cada banco. Pedir vários cartões de uma vez derruba o score.</p></section>`;
+    <p class="sub" style="font-size:12px">Regras de 2026 tiradas de sites de cartões; mudam com frequência. A aprovação depende de cada banco. Pedir vários cartões de uma vez derruba o score.</p>`;
   // 9. como funciona + ajustes
-  const cardGuia = `<section class="card"><div class="head"><h2>Como funciona (sem complicação)</h2></div>
-    ${dobra("gBasico", "O caminho dos pontos até a viagem", `<ol class="guia"><li><b>Ganhe:</b> concentre os gastos no cartão que mais pontua (Itaú) e use os apps dos lugares (Premmia, Stix…).</li><li><b>Guarde:</b> deixe os pontos no Itaú. Lá eles esperam a promoção certa.</li><li><b>Espere o bônus:</b> o robô avisa quando a Azul, a Smiles ou a LATAM derem 80% ou mais para pontos do Itaú.</li><li><b>Transfira com destino:</b> só mande quando tiver uma viagem em vista (milhas vencem). Antes, cadastre-se na página da promoção.</li><li><b>Emita:</b> use a calculadora "Emitir passagem" para ver se aquela passagem vale as milhas.</li></ol>`)}
+  const cardGuia = `
     ${dobra("gRegras", "Regras de ouro", `<ul class="guia"><li>Nunca gaste a mais para ganhar pontos. Juros do rotativo comem anos de milhas.</li><li>Pague a fatura inteira, sempre.</li><li>Troca por produto, dinheiro ou "pontos + dinheiro" quase sempre vale pouco.</li><li>Clubes (assinaturas Livelo, Smiles, Azul) só se forem usar: dão bônus maiores, mas custam todo mês.</li><li>Junte as milhas do casal na mesma companhia para emitir mais rápido (cada um transfere para a própria conta e vocês emitem a passagem um para o outro).</li></ul>`)}
     ${dobra("gGloss", "Palavras que aparecem muito", `<ul class="guia"><li><b>Milheiro:</b> mil pontos ou milhas.</li><li><b>Transferência bonificada:</b> mandar pontos com bônus (ex.: 100% = o dobro).</li><li><b>Paridade:</b> quantas milhas cada ponto vira (1 para 1 é o normal).</li><li><b>CPM:</b> custo por milheiro.</li><li><b>Clube:</b> assinatura mensal do programa.</li></ul>`)}
     ${dobra("gAjustes", "Ajustar os cartões", `${c.cartoes.map(kk => { const pr = progCartao(kk.nome); return `<div class="frow" style="grid-template-columns:minmax(0,1fr) minmax(0,130px) minmax(0,70px)"><span>${esc(kk.nome)}</span><select data-progcard="${esc(kk.nome)}">${PROGRAMAS.map(x=>`<option ${pr.programa===x?"selected":""}>${x}</option>`).join("")}</select><input data-ptscard="${esc(kk.nome)}" inputmode="decimal" value="${String(pr.pts).replace(".",",")}" aria-label="Pontos por dólar"></div>`; }).join("")}<p class="sub">Programa e pontos por dólar de cada cartão.</p><button class="btn ghost" data-act="salvarProgCartoes">Salvar</button>`)}
-  </section>`;
-  return `<div class="settings">${cardMes}${cardMeta}${cardRadar}${cardCarteira}${cardCalc}${cardOnde}${cardBenef}${cardNovos}${cardGuia}</div>`;
+  `;
+  const cardMais = `<section class="card"><div class="head"><h2>Para saber mais</h2><span class="sub">quando tiver tempo</span></div>
+    ${dobra("mCalc", "Vale a pena trocar? (calculadora)", cardCalc)}
+    ${dobra("mOnde", "Onde ganhar mais pontos", cardOnde)}
+    ${dobra("mBenef", "Benefícios dos seus cartões", cardBenef)}
+    ${dobra("mNovos", "Outros cartões: vale tentar?", cardNovos)}
+    ${cardGuia}</section>`;
+  return `<div class="settings">${cardFacil}${cardCarteira}${cardRadar}${cardMes}${cardMeta}${cardMais}</div>`;
 }
 const PARCEIROS = [
   {nome:"Postos Petrobras", re:/premmia|petrobras|\bbr\b|posto/i, programa:"Premmia", como:"use o app Premmia ao abastecer; pontos viram desconto ou vão para LATAM/Smiles em promoção"},
@@ -1873,13 +1963,41 @@ function dicaPontos(txt){
 function editarSaldo(id){
   const x = id ? (cfg().milhas?.saldos||[]).find(s => s.id === id) : {programa:"Itaú Pontos", quem:"Casal", saldo:"", validade:""}; if (!x) return;
   $("#modalRoot").innerHTML = `<div class="overlay" data-close="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="Saldo de pontos"><h2>${id?"Editar":"Novo"} saldo</h2>
+    <label class="btn ghost mi-print">${I.cam}Ler o saldo do print<input type="file" id="s-print" accept="image/*" hidden></label><p class="sub" id="s-lendo">Tire um print da tela de pontos do app (Itaú, Porto, Livelo, Smiles…) e a Fina preenche.</p>
     <div class="fgrid"><label>Programa<select id="s-prog">${PROGRAMAS.map(p=>`<option ${x.programa===p?"selected":""}>${p}</option>`).join("")}</select></label>
     <label>De quem<select id="s-quem">${opts([...cfg().pessoas,"Casal"], x.quem)}</select></label>
     ${campoNum("s-saldo","Saldo (pontos ou milhas)",x.saldo)}<label>Vencem em (se tiver)<input type="date" id="s-val" value="${esc(x.validade)}"></label></div>
     <div class="acts">${id?`<button class="btn danger" data-saldodel="${esc(id)}">Apagar</button>`:"<span></span>"}<span style="display:flex;gap:8px"><button class="btn ghost" data-close="1">Cancelar</button><button class="btn" data-saldosave="${esc(id||"")}">Salvar</button></span></div></div></div>`;
 }
+/* lê o print do app do banco ou da companhia, sem IA */
+async function lerSaldoPrint(file){
+  const aviso = $("#s-lendo"); if (aviso) aviso.textContent = "Lendo o print… (na 1ª vez demora um pouco)";
+  try{
+    await carregarScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+    const r = await window.Tesseract.recognize(file, "por");
+    const R = saldoDoTexto(r.data.text || "");
+    if (!$("#s-saldo")) return;
+    if (R.programa) $("#s-prog").value = R.programa;
+    if (R.saldo) $("#s-saldo").value = R.saldo.toLocaleString("pt-BR");
+    if (R.validade) $("#s-val").value = R.validade;
+    if ($("#s-lendo")) $("#s-lendo").textContent = R.saldo ? `Achei ${R.saldo.toLocaleString("pt-BR")}${R.programa ? " na " + R.programa : ""}. Confira e toque em Salvar.` : "Não consegui achar o saldo. Digite o número.";
+  }catch(e){ if ($("#s-lendo")) $("#s-lendo").textContent = "Não consegui ler agora (precisa de internet na 1ª vez). Digite o número."; }
+}
+function saldoDoTexto(t){
+  const low = t.toLowerCase();
+  const progs = [[/livelo/, "Livelo"], [/smiles/, "Smiles"], [/latam/, "LATAM Pass"], [/tudo ?azul|azul fidelidade/, "Azul Fidelidade"], [/porto ?plus|porto/, "PortoPlus"], [/esfera/, "Esfera"], [/ita[uú]|sempre presente/, "Itaú Pontos"], [/premmia/, "Premmia"], [/stix/, "Stix"]];
+  const programa = (progs.find(([re]) => re.test(low)) || [,""])[1];
+  const numeros = linha => (linha.match(/\d{1,3}(?:[.\s]\d{3})+|\d{3,7}/g) || []).map(x => Number(x.replace(/[.\s]/g, ""))).filter(n => n >= 100 && n <= 5e6 && !(n >= 1900 && n <= 2100));
+  const linhas = t.split("\n"), chave = /pontos|milhas|saldo|dispon/i;
+  let cand = [];
+  linhas.forEach((l, k) => { if (/r\$/i.test(l)) return; if (chave.test(l) || chave.test(linhas[k-1]||"") || chave.test(linhas[k+1]||"")) cand.push(...numeros(l)); });
+  if (!cand.length) cand = linhas.filter(l => !/r\$/i.test(l)).flatMap(numeros);
+  const saldo = cand.length ? Math.max(...cand) : 0;
+  const dv = t.match(/(?:venc|expir|validade)[^\d]{0,30}(\d{2})\/(\d{2})\/(\d{4})/i);
+  return {programa, saldo, validade: dv ? `${dv[3]}-${dv[2]}-${dv[1]}` : ""};
+}
 function salvarSaldo(id){
-  const x = {id: id || ("m" + uid()), programa: $("#s-prog").value, quem: $("#s-quem").value, saldo: num($("#s-saldo").value), validade: $("#s-val").value};
+  const x = {id: id || ("m" + uid()), programa: $("#s-prog").value, quem: $("#s-quem").value, saldo: inteiro($("#s-saldo").value), validade: $("#s-val").value};
   const l = (cfg().milhas?.saldos||[]).filter(s => s.id !== x.id); l.push(x); $("#modalRoot").innerHTML = ""; saveConfig({milhas:{...(cfg().milhas||{}), saldos: l}});
 }
 

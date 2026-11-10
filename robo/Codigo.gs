@@ -434,6 +434,14 @@ function avisosDiarios() {
           avisar_(av.topico, 'Milhas: ' + x.bonus + '% de bônus', x.titulo + (x.ultimoDia ? ' (último dia!)' : '') + ' — veja na Fina se vale para vocês.', 'airplane');
         });
       } catch (e) {}
+      // pontos ou milhas perto de vencer: avisa com 30, 7 e 1 dia
+      ((app.milhas || {}).saldos || []).forEach(x => {
+        if (!x.validade) return;
+        const dias = Math.round((new Date(x.validade + 'T12:00:00') - hoje) / 864e5);
+        if ([30, 7, 1].indexOf(dias) < 0) return;
+        const k = 'VENCE|' + nome + '|' + x.id + '|' + x.validade + '|' + dias; if (p.getProperty(k)) return; p.setProperty(k, '1');
+        avisar_(av.topico, 'Milhas: vencem em ' + dias + (dias === 1 ? ' dia' : ' dias'), Number(x.saldo || 0).toLocaleString('pt-BR') + ' na ' + x.programa + '. Use ou transfira antes de perder. Veja na aba Milhas da Fina.', 'hourglass');
+      });
     }
     if (av.quadro !== false) {          // Nosso Quadro: combinados do dia da semana e, no dia 1º, metas com prazo neste mês
       const itens = ((app.quadro || {}).itens) || [];

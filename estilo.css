@@ -46,7 +46,7 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 
 /* barra inferior (celular) */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(12px);border-top:1px solid var(--line);
-  padding:8px max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));display:grid;grid-template-columns:repeat(5,1fr);align-items:end}
+  padding:8px max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));display:grid;grid-template-columns:repeat(6,1fr);align-items:end}
 .tab{background:none;border:0;display:grid;justify-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--ink-3);padding:4px 0}
 .tab svg{width:22px;height:22px}
 .tab[aria-current="page"]{color:var(--accent)}
@@ -455,3 +455,18 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 .mural-nota li.feito{text-decoration:line-through;opacity:.55}
 .mural-pe{text-align:center;font:600 22px "Caveat","Segoe Print",cursive;color:var(--ink-2)}
 @media (prefers-reduced-motion:reduce){.mural-nota,.mural-sonho{transform:none}}
+/* Milhas fácil (Início e tela de milhas) */
+.mi-saldo{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.mi-saldo small{display:block;color:var(--ink-2);font-size:13px}
+.mi-saldo b{font:700 22px var(--f-display);color:var(--ink)}
+.mi-passo{display:grid;gap:6px;padding:12px;border-radius:12px;background:var(--surface-2);border-left:4px solid var(--accent);margin:6px 0}
+.mi-passo small{color:var(--ink-2);font-size:14px;line-height:1.4}
+.mi-passo.alerta{border-left-color:var(--gold)}
+.mi-passo.risco{border-left-color:var(--bad)}
+.mi-passo .btn{justify-self:start;margin-top:4px}
+.mi-passos{margin:4px 0 10px;padding-left:20px;display:grid;gap:8px;font-size:15px;line-height:1.45}
+.mi-meta{display:grid;gap:6px;margin:6px 0 10px}
+.mi-meta .line{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.mi-meta .btn{justify-self:start}
+.sheet label.mi-print,.mi-print{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin:4px 0;font-size:15px}
+.mi-print svg{width:20px;height:20px}

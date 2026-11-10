@@ -470,3 +470,17 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 .mi-meta .btn{justify-self:start}
 .sheet label.mi-print,.mi-print{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin:4px 0;font-size:15px}
 .mi-print svg{width:20px;height:20px}
+/* entrada: caixa da senha com olhinho */
+.login{width:100%}
+.login input,.form .senha-campo input{width:100%;text-align:center;font-size:20px;letter-spacing:.08em;border:1px solid var(--line);background:var(--surface);border-radius:var(--r-md);padding:12px 48px;color:var(--ink)}
+.form .senha-campo input{font-size:16px;text-align:left;padding:10px 46px 10px 12px;letter-spacing:0}
+.login .btn{justify-content:center}
+.senha-campo{position:relative;width:100%;margin-bottom:6px}
+.olho-senha{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:10px;background:none;color:var(--ink-2);display:grid;place-items:center;cursor:pointer}
+.olho-senha svg{width:22px;height:22px}
+.olho-senha:focus-visible{outline:2px solid var(--accent)}
+.abrir-op{display:grid;gap:8px;margin-bottom:10px}
+.abrir-op .fonte span{display:grid;gap:2px;text-align:left}
+.abrir-op .fonte small{color:var(--ink-2);font-size:13px;font-weight:400}
+.gate-in .senha-campo input{padding:12px 48px}
+.abrir-op .fonte{display:flex;border-radius:12px;padding:10px 12px;font-size:15px}

@@ -1,6 +1,6 @@
 
 /* ---------- ícones ---------- */
-const VERSAO_APP = 20;   // igual ao número do sw.js
+const VERSAO_APP = 21;   // igual ao número do sw.js
 const I = {
   olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
   olhoFechado:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
@@ -501,7 +501,7 @@ function renderAssistente(){
     <div class="msgs" id="msgs" aria-live="polite">
       ${S.chat.length ? "" : `<div class="msg bot"><div class="b">Oi${S.me?", "+esc(S.me):""}! Eu sou a ${esc(c.nomeAssistente)}. Me mande prints de fatura ou comprovantes, diga um gasto (“gastei 70 de gasolina no Pix”) ou pergunte sobre o mês. Antes de salvar, eu sempre mostro o que entendi pra você conferir.</div></div><div class="suggest">${sugest.map(s=>`<button data-sug="${esc(s)}">${esc(s)}</button>`).join("")}</div>`}
       ${S.chat.map((m,i)=>msgHTML(m,i)).join("")}
-      ${S.busy?`<div class="msg bot"><div class="b muted">Pensando…</div></div>`:""}
+      ${S.busy?`<div class="msg bot"><div class="b muted">${esc(S.lendo || "Pensando…")}</div></div>`:""}
     </div>
     <div class="composer">
       ${S.pendingImgs.length?`<div class="pending-imgs">${S.pendingImgs.map((f,i)=>`<span class="pi">${f.file.type==="application/pdf" ? `<span class="pdf">PDF</span>` : /\.ofx$/i.test(f.file.name||"") ? `<span class="pdf">OFX</span>` : `<img src="${f.url}" alt="Print ${i+1}">`}<button data-rmimg="${i}" aria-label="Remover print">×</button></span>`).join("")}</div>`:""}
@@ -520,7 +520,7 @@ function renderAssistente(){
 function msgHTML(m, i){
   if (m.role === "user") return `<div class="msg me">${m.imgs?`<div class="thumbs">${Array.from({length:m.imgs},()=>`<span class="chip">anexo</span>`).join("")}</div>`:""}${m.text?`<div class="b">${esc(m.text)}</div>`:""}</div>`;
   const props = m.items?.length ? proposalHTML(m, i) : "";
-  return `<div class="msg bot"><div class="b">${esc(m.text)}</div>${props}<div class="meta"><button class="speak" data-speak="${i}">${I.spk}Ouvir</button>${m.saved?`<span>Salvo</span>`:""}</div></div>`;
+  return `<div class="msg bot"><div class="b">${esc(m.text)}</div>${props}<div class="meta"><button class="speak" data-speak="${i}">${I.spk}Ouvir</button>${m.semIA && m._orig && !m.saved ? `<button class="speak" data-comia="${i}">Ler com a IA</button>` : ""}${m.saved?`<span>Salvo</span>`:""}</div></div>`;
 }
 function opts(list, val, allowEmpty=true){ return (allowEmpty?`<option value="">—</option>`:"") + list.map(x=>`<option ${x===val?"selected":""}>${esc(x)}</option>`).join("") + (val && !list.includes(val) ? `<option selected>${esc(val)}</option>` : ""); }
 function proposalHTML(m, i){
@@ -567,7 +567,8 @@ function isDuplicate(it){
 
 function buildPrompt(text, nImgs){
   const c = cfg(); const M = month(S.mes);
-  const ctx = {
+  const leve = nImgs > 0 && !/\?/.test(text||"");      // só ler fatura: manda o mínimo (gasta menos do limite grátis)
+  const ctx = leve ? {hoje: today(), mes_em_foco: S.mes, enviado_por: S.me || "não informado", categorias: catNames(), formas_de_pagamento: formas(), pessoas: c.pessoas, regras_de_quem: c.regrasQuem, cartoes: c.cartoes.map(k=>({nome:k.nome, fecha_dia:k.fecha}))} : {
     hoje: today(), mes_em_foco: S.mes, enviado_por: S.me || "não informado",
     categorias: catNames(), formas_de_pagamento: formas(), pessoas: c.pessoas,
     regras_de_quem: c.regrasQuem,
@@ -654,7 +655,8 @@ async function perguntarIA(prompt, anexos, signal){
   const key = await chaveIA();
   if (!key){ const r = await api({a:"ia", prompt, imagens: anexos}, signal); if (!r.ok) throw {code:r.erro}; return r.texto; }
   const ruins = new Set(ls.get("gruins", []));
-  const modelos = (await modelosIA(key)).filter(m => !ruins.has(m));
+  let modelos = (await modelosIA(key)).filter(m => !ruins.has(m));
+  if (anexos.length) modelos = [...modelos.filter(m => /lite/.test(m)), ...modelos.filter(m => !/lite/.test(m))];   // ler fatura: o modelo leve basta e tem limite maior
   if (!modelos.length){ ls.set("gruins", []); ls.set("gmodelos", null); throw {code:"ia_sem_modelo"}; }
   let ultimo = null;
   for (const modelo of modelos.slice(0, 4)){
@@ -667,7 +669,7 @@ async function perguntarIA(prompt, anexos, signal){
       if ((r.status === 400 && /api.?key/i.test(t)) || r.status === 401 || (r.status === 403 && /api.?key|permission/i.test(t))){ ls.set("gkey", ""); throw {code:"chave_ruim"}; }
       ultimo = {code:"ia_"+r.status, detalhe:t.replace(/\s+/g," ").slice(0,160)};
       if (r.status === 404 || r.status === 400){ ruins.add(modelo); ls.set("gruins", [...ruins]); break; }   // modelo aposentado: tenta o próximo
-      if (r.status === 429){ ultimo = {code:"limite"}; break; }                                              // limite deste modelo: tenta o próximo
+      if (r.status === 429) throw {code:"limite"};                                                           // limite grátis: para e avisa (não fica tentando)
       if (r.status >= 500 && tent === 0){ await new Promise(ok=>setTimeout(ok, 2000)); continue; }          // Google ocupado: espera e tenta
       break;
     }
@@ -712,6 +714,19 @@ async function sendMsg(){
   const prompt = buildPrompt(text, files.length);
   ls.set("draft",""); S.pendingImgs.forEach(p=>URL.revokeObjectURL(p.url)); S.pendingImgs = [];
   S.busy = true; render();
+  // 1º: ler sem IA (arquivo do banco, PDF, print/foto, ou frase simples). Sem limite e sem internet.
+  if (!S.forcarIA){
+    try{
+      const r = files.length ? await lerSemIA(files) : lerFraseSemIA(text);
+      if (r && r.itens.length){
+        const items = r.itens.map(normItem);
+        const msg = {role:"assistant", text: `Li ${items.length} ${items.length===1?"item":"itens"} ${r.metodo} sem usar a IA. Confira e toque em Salvar.${r.fatura && !r.fatura.total ? "" : ""}`, items, fatura: r.fatura || null, semIA: true};
+        msg._orig = {text, files}; if (files.length) msg._f = files.filter(f => f.type.startsWith("image/"));
+        S.busy = false; S.chat.push(msg); saveChat(); render(); if (S.speakOn) speak(msg.text); return;
+      }
+    }catch(e){ console.warn("leitura sem IA", e); S.lendo = ""; }
+  }
+  S.forcarIA = false;
   let anexos = [];
   try{ anexos = await anexosDe(files); }catch{ S.busy = false; S.chat.push({role:"assistant", text:"Não consegui abrir esse arquivo. Tente uma foto ou um PDF.", items:[]}); saveChat(); return render(); }
   if (!navigator.onLine && !anexos.length){
@@ -1065,6 +1080,8 @@ document.addEventListener("click", async ev => {
   if (d.delete){ const [k,id] = d.delete.split(":"); return deleteItem(k, id); }
   if (d.sug){ if (S.tab!=="assistente") go("assistente"); const a = $("#ask"); if (a){ a.value = d.sug; } return sendMsg(); }
   if (d.speak) return speak(S.chat[Number(d.speak)]?.text||"");
+  if (d.comia != null){ const m = S.chat[Number(d.comia)]; if (!m?._orig) return; if (!navigator.onLine) return toast("Precisa de internet para usar a IA."); m.items = []; m.text += "\n(Pedi para a IA ler de novo.)"; S.forcarIA = true; const {text, files} = m._orig; m._orig = null;
+    S.pendingImgs = files.map(f => ({file:f, url:URL.createObjectURL(f)})); const box = $("#ask"); if (box) box.value = text; else ls.set("draft", text); return sendMsg(); }
   if (d.rmimg){ const p = S.pendingImgs.splice(Number(d.rmimg),1)[0]; if (p) URL.revokeObjectURL(p.url); return render(); }
   if (d.confirm) return confirmItems(Number(d.confirm));
   if (d.discard){ const m = S.chat[Number(d.discard)]; m.items = []; m.text += "\n(Descartado)"; saveChat(); return render(); }
@@ -1864,6 +1881,217 @@ function editarSaldo(id){
 function salvarSaldo(id){
   const x = {id: id || ("m" + uid()), programa: $("#s-prog").value, quem: $("#s-quem").value, saldo: num($("#s-saldo").value), validade: $("#s-val").value};
   const l = (cfg().milhas?.saldos||[]).filter(s => s.id !== x.id); l.push(x); $("#modalRoot").innerHTML = ""; saveConfig({milhas:{...(cfg().milhas||{}), saldos: l}});
+}
+
+/* ================= LER SEM IA: OFX, CSV, PDF de fatura, print e foto ================= */
+const MESES_ABR = {jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+function carregarScript(src){ return new Promise((ok, erro) => { if ([...document.scripts].some(x => x.src === src)) return ok(); const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = erro; document.head.append(el); }); }
+function anoCerto(d, m){ const h = new Date(); let y = h.getFullYear(); if (new Date(y, m-1, d) > new Date(h.getTime() + 5*864e5)) y--; return `${y}-${pad(m)}-${pad(d)}`; }
+function cartaoDoTexto(t){
+  const low = t.toLowerCase(), cs = cfg().cartoes.map(k => k.nome);
+  const final = cs.find(n => { const f = (n.match(/\d{4}/)||[])[0]; return f && low.includes(f); });
+  if (final) return final;
+  const marcas = [[/ita[uú]/, /ita/i], [/santander/, /santander/i], [/nubank|nu pagamentos/, /nubank/i], [/banco inter|\binter\b/, /inter/i], [/porto/, /porto/i]];
+  for (const [re, nome] of marcas) if (re.test(low)) return cs.find(n => nome.test(n)) || "";
+  return "";
+}
+/* aprende com o histórico: mesma loja, mesma categoria e mesma pessoa de antes */
+function categoriaPelaHistoria(desc){
+  const chave = String(desc||"").toLowerCase().replace(/[^a-zà-ú0-9 ]/g," ").split(/\s+/).filter(w => w.length > 2 && !/^(pag|com|loja|ltda|sao|paulo|outros)$/.test(w))[0];
+  if (chave){ const g = [...S.gastos].reverse().find(x => (x.descricao||"").toLowerCase().includes(chave)); if (g) return {categoria: g.categoria, quem: g.quem}; }
+  const PAL = [["Mercado",/mercado|supermerc|padaria|panific|feira|a[cç]ougue|atacad|assa[ií]|hirota|carrefour|sendas|p[aã]o de|emp[oó]rio|hortifruti/i],["Combustível",/posto|gasolina|combust|shell|ipiranga|premmia|petrobras|auto posto/i],["Transporte",/uber|\b99\b|ped[aá]gio|nutag|estacion|zona azul|\bzul\b|1 ?cart[aã]o|metr[oô]|oficina|centro automotivo|seguro auto/i],["Saúde/Farmácia",/farm|drogaria|raia|drogasil|pague menos|m[eé]dic|cl[ií]nica|laborat|rd saude/i],["Alimentação fora",/ifood|restaurante|lanche|burger|hamburg|pizza|sushi|a[cç]a[ií]|sorvete|gelato|caf[eé]|bar |lanchonete|99food|outback|mc ?donald|bk /i],["Lazer",/cinema|ingresso|spotify|netflix|parque|hotel|viagem|show|teatro/i],["Presentes",/presente|botic[aá]rio|natura|cacau show|chocolate/i],["Educação",/curso|escola|livr|papelaria|estudei|qconcurso/i],["Esporte/Academia",/academia|totalpass|gympass|jiu|crossfit|centauro|netshoes|decathlon/i],["Casa",/casa|lava|limpeza|constru|leroy|sodimac|madeira|m[oó]veis|eletro/i],["Compras",/shopee|shein|mercado ?livre|amazon|magalu|tiktok|aliexpress|loja|c&a|renner|riachuelo/i]];
+  const hit = PAL.find(([n,re]) => re.test(desc||"") && catNames().includes(n));
+  return {categoria: hit ? hit[0] : (catNames().includes("Serviços/Outros") ? "Serviços/Outros" : catNames()[0]), quem: ""};
+}
+function limparDesc(d){
+  d = String(d||"").replace(/\s+/g," ").replace(/\b(outros|sao paulo|são paulo|sp|br|bra)\b\s*$/i,"").replace(/\s{2,}/g," ").trim();
+  return d.toLowerCase().replace(/(^|[\s*\-/])([a-zà-ú])/g, (m,a,b) => a + b.toUpperCase()).slice(0, 80);
+}
+const IGNORAR = /pagamento|pagto|pgto|deb\.? ?autom|saldo anterior|total d|total a pagar|limite|encargos|juros do|cr[eé]dito rotativo|valor total|subtotal|lan[cç]amentos no cart|fatura anterior|recebemos seu pagamento/i;
+function montarItem(dia, mes, ano, desc, valor, forma){
+  let d = desc, parc = null;
+  const m = d.match(/\b(?:parc(?:ela)?\.?\s*)?(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\b(?!\/)/i);
+  if (m && Number(m[2]) >= Number(m[1]) && Number(m[2]) > 1 && Number(m[2]) <= 48){ parc = [Number(m[1]), Number(m[2])]; d = d.replace(m[0], " "); }
+  const data = ano ? `${ano.length === 2 ? "20" + ano : ano}-${pad(mes)}-${pad(dia)}` : anoCerto(dia, mes);
+  const nome = limparDesc(d); const h = categoriaPelaHistoria(nome);
+  const quem = h.quem || (S.gastos.filter(g => g.forma === forma).map(g => g.quem).filter(Boolean).sort((a,b,arr) => 0)[0] || "");
+  return parc ? {tipo:"parcela", data, valor, parcela_atual: parc[0], total_parcelas: parc[1], categoria: h.categoria, quem, forma, descricao: nome}
+              : {tipo:"gasto", data, valor, categoria: h.categoria, quem, forma, descricao: nome};
+}
+const RE_VALOR = "(-\\s?)?(?:R\\$\\s?)?(-\\s?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(\\s?-)?";
+function valorDe(m1, m2, num_, m4){ const v = num(num_); return (m1 || m2 || m4) ? -v : v; }
+/* fatura em texto (PDF ou print com linhas "dd/mm loja valor"), inclusive com duas colunas na mesma linha */
+function lerLinhasFatura(linhas, forma){
+  const itens = [];
+  const re = new RegExp("(\\d{2})\\/(\\d{2})(?:\\/(\\d{2,4}))?\\s+(.+?)\\s+" + RE_VALOR + "(?=\\s+\\d{2}\\/\\d{2}(?:\\/\\d{2,4})?\\s|\\s*$)", "g");
+  let pular = false;
+  // valor numa linha e "IOF ..." na de baixo (Santander): junta as duas
+  linhas = linhas.map((l, i) => {
+    const prox = linhas[i+1] || "";
+    if (/^\s*\d{1,3}(?:\.\d{3})*,\d{2}\s*$/.test(l) && /^\s*IOF\b/i.test(prox) && !/\d,\d{2}/.test(prox)) return "";
+    const ant = linhas[i-1] || "";
+    if (/^\s*IOF\b/i.test(l) && !/\d,\d{2}/.test(l) && /^\s*\d{1,3}(?:\.\d{3})*,\d{2}\s*$/.test(ant)) return l.trim() + " " + ant.trim();
+    return l;
+  });
+  for (const l of linhas){
+    if (l === "@@coluna"){ pular = false; continue; }
+    if (/pr[oó]ximas? faturas|compras parceladas\s*-|parcelas? futuras|lan[cç]amentos futuros/i.test(l)){ pular = true; continue; }   // parcelas que ainda vão vir: não são desta fatura
+    if (pular && /limites? de cr[eé]dito|encargos|lan[cç]amentos:|despesas|pagamentos? efetuados|resumo/i.test(l)) pular = false;
+    if (pular) continue;
+    const iof = l.match(/\b(?:repasse de )?IOF\b(?!.*financ)(?!.*\d{2}\/\d{2}).*?(\d{1,3}(?:\.\d{3})*,\d{2})\s*$/i);
+    if (iof && num(iof[1]) > 0 && itens.length){ const u = itens[itens.length-1]; itens.push({...u, tipo:"gasto", valor:num(iof[1]), descricao:"IOF compra internacional", parcela_atual:undefined, total_parcelas:undefined}); continue; }
+    re.lastIndex = 0; let m;
+    while ((m = re.exec(l))){
+      let [, dd, mm, aa, desc, s1, s2, v, s4] = m;
+      const dois = desc.match(/^(.*\S)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2})$/);      // compra internacional: "loja 27,05 5,00" → R$ 27,05 (o outro é em dólar)
+      if (dois){ desc = dois[1]; v = dois[2].replace("-",""); if (dois[2].startsWith("-")) s1 = "-"; }
+      if (Number(mm) < 1 || Number(mm) > 12 || Number(dd) < 1 || Number(dd) > 31 || IGNORAR.test(desc) || (desc.match(/[a-zà-ú]/gi)||[]).length < 3) continue;
+      itens.push(montarItem(Number(dd), Number(mm), aa, desc, valorDe(s1, s2, v, s4), forma));
+    }
+  }
+  return itens;
+}
+/* print de app de banco: data num título ("24 OUT", "3 de novembro"), loja numa linha e "R$ 89,80" em outra */
+function lerListaApp(linhas, forma){
+  // prints de app de banco: cada compra tem dia/mês, nome e "R$ valor", em ordens diferentes conforme o banco
+  const MES = "(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)";
+  const RUIDO = /^(pendente|cart[aã]o (f[ií]sico|virtual)|adicional|outros|despesas|ver mais|antecipar|resumo da fatura|dia de vencimento|melhor dia|subtotal|titular|parcelad[oa]|em processamento|\W*$)/i;
+  const itens = []; let dia = 0, mes = 0, antes = [], cur = null;
+  const maisEhCredito = linhas.some(l => /\+\s?R\$/.test(l));     // Inter: "+R$" é crédito e "-R$" é compra; nos outros, "-R$" é crédito
+  const emite = () => {
+    if (!cur) return;
+    const texto = cur.desc.join(" ").replace(/\s+/g, " ").trim(), m = cur.mes || mes;
+    if (cur.dia && m && texto.length > 1 && !IGNORAR.test(texto)){
+      const it = montarItem(cur.dia, m, null, texto, cur.credito ? -cur.valor : cur.valor, forma);
+      if (cur.parc) Object.assign(it, {tipo:"parcela", parcela_atual: cur.parc[0], total_parcelas: cur.parc[1]});
+      itens.push(it);
+    }
+    cur = null;
+  };
+  for (const l0 of linhas){
+    const l = l0.trim().replace(/^[<>©@«»&"“”']+\s*/, "").replace(/^[O0o]\s+(?=[+\-]?R\$|[A-ZÀ-Ú]{3,})/, "").replace(/\s*[>›]$/, "").trim();
+    if (!l) continue;
+    const dt = l.match(new RegExp("^(?:[a-zà-ú\\-]+,?\\s+)?(\\d{1,2})\\s*(?:de\\s+)?" + MES + "[a-zç]*\\.?(?:\\s+de\\s+\\d{4})?$", "i"));
+    if (dt){ emite(); dia = Number(dt[1]); mes = MESES_ABR[dt[2].toLowerCase()]; antes = []; continue; }
+    const mo = l.match(new RegExp("^" + MES + "\\b\\.?\\s*(.*)$", "i"));      // Porto: o mês vem na linha de baixo ("OUT pendente")
+    if (mo && cur && !cur.mes){
+      cur.mes = MESES_ABR[mo[1].toLowerCase()];
+      let resto = mo[2].replace(/pendente/i, "");
+      const pm = resto.match(/parcela\s*(\d{1,2})\s*de\s*(\d{1,2})/i); if (pm){ cur.parc = [Number(pm[1]), Number(pm[2])]; resto = resto.slice(0, pm.index); }
+      resto = resto.replace(/\s*B\s?R\s*$/i, "").replace(/[^\wà-ú* ]/gi, "").trim();
+      if (resto.length > 1 && !/^(recebemos|obrigad)/i.test(resto)) cur.desc.push(resto);
+      continue;
+    }
+    const pv = l.match(/parcela\s+(\d{1,2})\s*de\s*(\d{1,2})/i);
+    if (pv){ const par = [Number(pv[1]), Number(pv[2])]; if (cur) cur.parc = par; else if (itens.length && itens[itens.length-1].tipo === "gasto") Object.assign(itens[itens.length-1], {tipo:"parcela", parcela_atual: par[0], total_parcelas: par[1]}); continue; }
+    const mv = l.match(new RegExp(RE_VALOR));
+    if (mv && /(R\$|^[+\-]?\s?\d{1,3}(\.\d{3})*,\d{2}\s?-?$)/.test(l)){
+      emite();
+      const txt = l.slice(0, mv.index).replace(/[+\-—–]\s*$/, "").trim();
+      const credito = maisEhCredito ? /^\+|\+\s?R\$/.test(l) : (!!(mv[1] || mv[2] || mv[4]) || /\-\s?R\$/.test(l) || /estorno/i.test(txt));
+      const valor = num(mv[3]);
+      const c1 = txt.match(new RegExp("^(\\d{1,2})\\s*" + MES + "\\w*\\.?\\s+(.+)$", "i"));
+      const c2 = txt.match(/^(\d{1,2})\.?\s+[—–\-"“”']*\s*(.*[a-zà-ú].*)$/i);
+      if (c1) cur = {dia: Number(c1[1]), mes: MESES_ABR[c1[2].toLowerCase()], desc: [c1[3]], valor, credito};
+      else if (c2) cur = {dia: Number(c2[1]), mes: 0, desc: [c2[2]], valor, credito};
+      else if ((txt.match(/[a-zà-ú]/gi) || []).length >= 3) cur = {dia, mes, desc: [txt], valor, credito};
+      else cur = {dia, mes, desc: antes.slice(-2), valor, credito, depois: !antes.length};
+      antes = []; continue;
+    }
+    if (RUIDO.test(l)) continue;
+    if (cur && cur.depois && cur.desc.length < 2) cur.desc.push(l.replace(/\s+[a-z]{2}$/i, ""));   // Inter: o nome vem depois do valor
+    else { if (cur && !cur.depois) emite(); antes.push(l.replace(/\s+[a-z]{2}$/i, "")); if (antes.length > 2) antes = antes.slice(-2); }
+  }
+  emite();
+  return itens;
+}
+function totalDaFatura(t){
+  const pats = [/total\s+desta\s+fatura/i, /o total da sua fatura [ée]/i, /saldo desta fatura/i, /total a pagar/i, /valor total da fatura/i, /total da fatura(?!\s+anterior)/i];
+  for (const p of pats){ const m = t.match(new RegExp(p.source + "[^\\d\\n-]{0,30}(?:R\\$\\s?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})", "i")); if (m) return num(m[1]); }
+  return 0;
+}
+async function textoDoPDF(file){
+  await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf = await window.pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise; const linhas = [];
+  for (let n = 1; n <= Math.min(pdf.numPages, 15); n++){
+    const page = await pdf.getPage(n); const tc = await page.getTextContent(); const larg = page.getViewport({scale:1}).width;
+    const its = tc.items.filter(it => it.str.trim());
+    const ehData = it => /^\d{2}\/\d{2}\b/.test(it.str.trim());
+    const xsDireita = its.filter(it => ehData(it) && it.transform[4] > larg * 0.35).map(it => it.transform[4]);
+    const freq = {}; xsDireita.forEach(x => { const k = Math.round(x / 6) * 6; freq[k] = (freq[k]||0) + 1; });
+    const xCol = Object.keys(freq).map(Number).sort((a,b) => freq[b] - freq[a])[0];
+    const meio = xCol ? xCol - 6 : larg * 0.5;          // a 2ª coluna começa onde fica a maioria das datas da direita
+    const duasColunas = its.filter(it => ehData(it) && it.transform[4] < meio).length >= 3 && its.filter(it => ehData(it) && it.transform[4] >= meio).length >= 3;   // faturas em duas colunas (Itaú, Santander)
+    const emLinhas = lista => { const porY = {}; for (const it of lista){ const y = Math.round(it.transform[5] / 3) * 3; (porY[y] ||= []).push(it); }
+      return Object.keys(porY).map(Number).sort((a,b) => b - a).map(y => porY[y].sort((a,b) => a.transform[4] - b.transform[4]).map(i => i.str.trim()).join(" ")); };
+    if (duasColunas){ linhas.push(...emLinhas(its.filter(it => it.transform[4] < meio)), "@@coluna", ...emLinhas(its.filter(it => it.transform[4] >= meio))); }
+    else linhas.push(...emLinhas(its));
+  }
+  return linhas;
+}
+async function textoDaImagem(file){
+  S.lendo = "Lendo o print sem IA… (na 1ª vez demora um pouco)"; render();
+  await carregarScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+  const r = await window.Tesseract.recognize(file, "por");
+  return (r.data.text || "").split("\n").map(x => x.trim()).filter(Boolean);
+}
+function lerOFX(t){
+  const forma = /nu pagamentos|nubank/i.test(t) ? (cfg().cartoes.find(k => /nubank/i.test(k.nome))?.nome || "") : cartaoDoTexto(t);
+  const itens = []; const re = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi; let m;
+  const tag = (b, n) => (b.match(new RegExp("<" + n + ">([^<\\r\\n]*)", "i")) || [,""])[1].trim();
+  while ((m = re.exec(t))){
+    const b = m[1], v = parseFloat(tag(b,"TRNAMT").replace(",", ".")), dt = tag(b,"DTPOSTED"), memo = tag(b,"MEMO") || tag(b,"NAME");
+    if (!v || v > 0 || IGNORAR.test(memo)) continue;                   // só compras (débitos); pagamento da fatura fica de fora
+    itens.push(montarItem(Number(dt.slice(6,8)), Number(dt.slice(4,6)), dt.slice(0,4), memo, Math.abs(v), forma));
+  }
+  const bal = tag(t, "BALAMT"); return {itens, fatura: forma && bal ? {cartao: forma, total: Math.abs(parseFloat(bal.replace(",", ".")))} : null};
+}
+function lerCSV(t, nomeArq){
+  const linhas = t.split(/\r?\n/).filter(x => x.trim()); if (linhas.length < 2) return {itens:[]};
+  const sep = (linhas[0].match(/;/g)||[]).length >= (linhas[0].match(/,/g)||[]).length ? ";" : ",";
+  const cel = l => l.split(new RegExp(sep + '(?=(?:[^"]*"[^"]*")*[^"]*$)')).map(x => x.replace(/^"|"$/g,"").trim());
+  const forma = cartaoDoTexto(nomeArq + " " + linhas[0]);
+  const rows = linhas.slice(1).map(cel).map(c => {
+    const dc = c.find(x => /^\d{2}\/\d{2}\/\d{4}$|^\d{4}-\d{2}-\d{2}/.test(x)); const vc = [...c].reverse().find(x => /^-?R?\$?\s?-?[\d.]+[,.]\d{2}$/.test(x.replace(/\s/g,"")));
+    const desc = c.filter(x => x !== dc && x !== vc).sort((a,b) => b.length - a.length)[0] || "";
+    if (!dc || !vc) return null;
+    const [y,mo,d] = /^\d{4}/.test(dc) ? dc.slice(0,10).split("-").map(Number) : dc.split("/").reverse().map(Number);
+    const v = vc.includes(",") ? num(vc) : parseFloat(vc.replace(/[^\d.-]/g,""));
+    return {y, mo, d, desc, v};
+  }).filter(Boolean);
+  const negs = rows.filter(r => r.v < 0).length, compraNeg = negs > rows.length / 2;   // extrato de conta: compra é negativa
+  const itens = rows.filter(r => (compraNeg ? r.v < 0 : r.v > 0) && !IGNORAR.test(r.desc)).map(r => montarItem(r.d, r.mo, String(r.y), r.desc, Math.abs(r.v), forma));
+  return {itens};
+}
+async function lerSemIA(files){
+  let itens = [], fatura = null, metodos = new Set();
+  for (const f of files){
+    const nome = (f.name||"").toLowerCase();
+    if (/\.ofx$/.test(nome) || /ofx/.test(f.type)){ const r = lerOFX(await f.text()); itens.push(...r.itens); fatura = fatura || r.fatura; metodos.add("do arquivo do banco"); continue; }
+    if (/\.csv$/.test(nome) || /csv/.test(f.type)){ const r = lerCSV(await f.text(), nome); itens.push(...r.itens); metodos.add("da planilha do banco"); continue; }
+    let linhas = [];
+    if (f.type === "application/pdf"){ S.lendo = "Lendo o PDF sem IA…"; render(); linhas = await textoDoPDF(f); metodos.add("do PDF"); }
+    else if (f.type.startsWith("image/")){ linhas = await textoDaImagem(f); metodos.add("do print"); }
+    else continue;
+    const texto = linhas.join("\n"), forma = cartaoDoTexto(texto);
+    let lidos = lerLinhasFatura(linhas, forma);
+    if (lidos.length < 2 && f.type.startsWith("image/")) lidos = lerListaApp(linhas, forma);
+    itens.push(...lidos);
+    const tot = totalDaFatura(texto); if (tot && !fatura) fatura = {cartao: forma, total: tot};
+  }
+  S.lendo = "";
+  return {itens, fatura, metodo: [...metodos].join(" e ")};
+}
+/* frase simples com um valor: "gastei 45 na farmácia no pix", "recebi 118 do blablacar", "dei 1000 de dízimo" */
+function lerFraseSemIA(text){
+  const t = String(text||""); if (!t || /\?/.test(t)) return null;
+  const valores = t.match(/\d{1,6}(?:[.,]\d{1,2})?/g) || []; if (valores.length !== 1) return null;
+  if (/d[ií]zimo|oferta|reserva|investi/i.test(t)){ const v = num(valores[0].replace(".", ",")); return {itens:[{tipo:"separado", mes: /m[eê]s passado/i.test(t) ? addM(ymOf(new Date()), -1) : ymOf(new Date()), valor:v, para: /d[ií]zimo|oferta/i.test(t) ? "dizimo" : /reserva/i.test(t) ? "reserva" : "investimentos", quem: S.me || "Casal", descricao: limparDesc(t.replace(valores[0],""))}], metodo:"da sua mensagem"}; }
+  if (/\b(recebi|entrou|ganhei|caiu|sal[aá]rio)\b/i.test(t)){ const v = num(valores[0].replace(".", ",")); return {itens:[{tipo:"entrada", mes: ymOf(new Date()), valor:v, quem: S.me || "Casal", tipo_entrada: /sal[aá]rio/i.test(t) ? "Salário" : "Renda extra", descricao: limparDesc(t.replace(valores[0],"").replace(/\b(recebi|entrou|ganhei|caiu|reais|r\$|de|do|da|no|na)\b/gi," "))}], metodo:"da sua mensagem"}; }
+  const it = lancamentoRapido(t); if (!it) return null;
+  const h = categoriaPelaHistoria(it.descricao); if (!it.categoria) it.categoria = h.categoria;
+  return {itens:[it], metodo:"da sua mensagem"};
 }
 /* ---------- conexão com a planilha (robô do Google) ---------- */
 const ROBO_PADRAO = "https://script.google.com/macros/s/AKfycbymo5cSfuaGS3KsTzaxP8-EY1AKJXcDnoRYGziV5Ley7Mjj-skDiKUggXcylB31lOMq/exec";   // endereço do robô (Implantar > App da Web), preenchido depois da implantação

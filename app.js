@@ -1,6 +1,6 @@
 
 /* ---------- ícones ---------- */
-const VERSAO_APP = 23;   // igual ao número do sw.js
+const VERSAO_APP = 24;   // igual ao número do sw.js
 const I = {
   aviao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 13.5 3 11l1.5-1.5 7.5 1L16 6c1-1 2.5-1.5 3.2-.8.7.7.2 2.2-.8 3.2l-4.5 4.5 1 7.5L13.5 22 11 14.5"/><path d="M6 18l-2 2"/></svg>',
   olho:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
@@ -824,16 +824,23 @@ async function hashSenha(senha, sal){ const buf = await crypto.subtle.digest("SH
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 const deB64u = s => Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")), c => c.charCodeAt(0));
 const bioId = n => ls.get("bio:" + n, "");
+/* este celular lembra quem já entrou com a senha certa; "abrir" diz o que pedir ao abrir: direto, bio ou senha */
+const lembrado = n => !!ls.get("lembrar:" + n, false);
+const modoAbrir = n => { const m = ls.get("abrir:" + n, "direto"); return m === "bio" && !bioId(n) ? "direto" : m; };
+const entraDireto = n => !!n && lembrado(n) && modoAbrir(n) === "direto" && temSenha(n);
+function lembrarAparelho(n){ ls.set("lembrar:" + n, true); }
+function campoSenha(id, extra, placeholder, aria){ return `<div class="senha-campo"><input id="${id}" type="password" data-senha="1" autocapitalize="none" ${extra} placeholder="${esc(placeholder)}" aria-label="${esc(aria)}"><button type="button" class="olho-senha" data-act="olhoSenha" aria-label="Mostrar a senha" aria-pressed="false">${I.olho}</button></div>`; }
 async function bioDisponivel(){ try{ return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); }catch{ return false; } }
 function renderLogin(n){
+  if (entraDireto(n)){ desbloquear(n); return; }
   const novo = !temSenha(n), bio = !novo && bioId(n);
   $("#view").innerHTML = `<div class="who"><form class="who-in login" id="loginForm" autocomplete="on">${avatarHTML(n, 76)}<h1>${novo ? "Crie sua senha" : "Oi, " + esc(n) + "!"}</h1>
-    <p class="sub">${novo ? "Só você vai usar. Pelo menos 4 letras ou números. Depois dá para entrar com a digital ou o rosto." : "Digite sua senha" + (bio ? " ou use a digital/rosto." : ".")}</p>
+    <p class="sub">${novo ? "Só você vai usar. Pelo menos 4 letras ou números. Você só digita uma vez neste celular." : bio ? "Toque no botão e use a digital ou o rosto." : "Digite sua senha. É só desta vez: depois o celular lembra."}</p>
     <input type="text" name="username" autocomplete="username" value="${esc(n)}" style="display:none" tabindex="-1" aria-hidden="true">
-    <input id="loginSenha" name="password" type="password" autocomplete="${novo ? "new-password" : "current-password"}" autocapitalize="none" placeholder="${novo ? "nova senha" : "sua senha"}" aria-label="Senha de ${esc(n)}">
-    ${novo ? `<input id="loginSenha2" type="password" autocomplete="new-password" autocapitalize="none" placeholder="repita a senha" aria-label="Repita a senha">` : ""}
-    <button class="btn" type="submit" style="width:100%;justify-content:center">${novo ? "Criar e entrar" : "Entrar"}</button>
-    ${bio ? `<button class="btn ghost" type="button" data-act="bioEntrar" style="width:100%;justify-content:center">Entrar com digital ou rosto</button>` : ""}
+    ${bio ? `<button class="btn" type="button" data-act="bioEntrar">Entrar com digital ou rosto</button><p class="sub" style="font-size:13px">ou digite a senha:</p>` : ""}
+    ${campoSenha("loginSenha", `name="password" autocomplete="${novo ? "new-password" : "current-password"}"`, novo ? "nova senha" : "sua senha", "Senha de " + n)}
+    ${novo ? campoSenha("loginSenha2", `autocomplete="new-password"`, "repita a senha", "Repita a senha") : ""}
+    <button class="btn ${bio ? "ghost" : ""}" type="submit">${novo ? "Criar e entrar" : "Entrar"}</button>
     ${S.loginMsg ? `<p class="sub" style="color:var(--bad)">${esc(S.loginMsg)}</p>` : ""}
     <button class="btn ghost" type="button" data-act="voltarPessoas">Não sou ${esc(n)}</button></form></div>`;
   if (bio && !S.bioTentado){ S.bioTentado = true; setTimeout(entrarBio, 300); }
@@ -844,12 +851,11 @@ async function enviarLogin(){
     const b = $("#loginSenha2")?.value || "";
     if (a.length < 4){ S.loginMsg = "A senha precisa ter pelo menos 4 letras ou números."; return render(); }
     if (a !== b){ S.loginMsg = "As duas senhas não estão iguais."; return render(); }
-    await gravarSenhaPessoa(n, a); desbloquear(n);
-    if (await bioDisponivel()) setTimeout(() => { if (confirmarTela) confirmarTela("Quer entrar com a digital ou o rosto neste aparelho?", "Ativar", ativarBio); }, 400);
+    await gravarSenhaPessoa(n, a); entrouComSenha(n);
     return;
   }
   const sh = cfg().perfis[n].senha;
-  if (await hashSenha(a, sh.sal) === sh.hash) desbloquear(n);
+  if (await hashSenha(a, sh.sal) === sh.hash) entrouComSenha(n);
   else { S.loginMsg = "Senha errada. Tente de novo."; render(); }
 }
 async function gravarSenhaPessoa(n, senha){
@@ -857,6 +863,14 @@ async function gravarSenhaPessoa(n, senha){
   const patch = {perfis:{[n]:{senha:{sal, hash}}}};
   S.config = juntar(cfg(), patch); enfileirar({a:"app", app:patch}, "senha:" + n); guardarLocal(); enviar();
   try{ if (window.PasswordCredential) navigator.credentials.store(new PasswordCredential({id:n, password:senha, name:n})).catch(()=>{}); }catch{}
+}
+/* senha certa: o celular passa a lembrar e oferece a digital/rosto uma vez */
+async function entrouComSenha(n){
+  const primeira = !lembrado(n); lembrarAparelho(n); desbloquear(n);
+  if (primeira && !bioId(n) && !ls.get("bioPerguntado:" + n, false) && await bioDisponivel()){
+    ls.set("bioPerguntado:" + n, true);
+    setTimeout(() => confirmarTela("Pronto! Este celular não vai pedir a senha de novo. Quer usar a digital ou o rosto para abrir a Fina?", "Usar digital ou rosto", ativarBio), 400);
+  } else if (primeira) toast("Pronto! Este celular não vai pedir a senha de novo.", 3500);
 }
 function desbloquear(n){ S.desbloqueado = true; S.loginMsg = ""; S.lockPessoa = ""; S.bioTentado = false; S.saiuEm = 0; pickPerson(n); }
 async function ativarBio(){
@@ -866,7 +880,7 @@ async function ativarBio(){
       user:{id: new TextEncoder().encode(n + "-" + uid()), name:n, displayName:n},
       pubKeyCredParams:[{type:"public-key", alg:-7},{type:"public-key", alg:-257}],
       authenticatorSelection:{authenticatorAttachment:"platform", userVerification:"required", residentKey:"discouraged"}, timeout:60000}});
-    ls.set("bio:" + n, b64u(cred.rawId)); toast("Pronto! Da próxima vez é só a digital ou o rosto."); render();
+    ls.set("bio:" + n, b64u(cred.rawId)); ls.set("abrir:" + n, "bio"); toast("Pronto! Da próxima vez é só a digital ou o rosto."); render();
   }catch{ toast("Não deu para ativar agora. Tente de novo em Ajustes → Perfil."); }
 }
 async function entrarBio(){
@@ -884,10 +898,12 @@ function confirmarTela(texto, botao, acao){
 function renderSeguranca(){
   const n = S.me, bio = bioId(n);
   return `<section class="card"><div class="head"><h2>Senha e digital</h2><span class="sub">só para ${esc(n)}</span></div><form class="form" id="trocaSenhaForm" autocomplete="on">
-    <p class="sub">A ${esc(cfg().nomeAssistente)} pede sua senha (ou digital/rosto) ao abrir e quando fica mais de 5 minutos fechada.</p>
+    <div class="flabel">Ao abrir a ${esc(cfg().nomeAssistente)} neste celular</div>
+    <div class="abrir-op">${[["direto","Entrar direto","sem pedir nada (o celular já lembra de você)"],["bio","Pedir digital ou rosto", bio ? "rápido e seguro" : "toque para ativar"],["senha","Pedir a senha","toda vez que abrir"]].map(([k,t,d]) => `<label class="fonte"><input type="radio" name="abrir" data-abrir="${k}" ${modoAbrir(n)===k?"checked":""}><span><b>${t}</b><small>${d}</small></span></label>`).join("")}</div>
     <input type="text" name="username" autocomplete="username" value="${esc(n)}" style="display:none" tabindex="-1" aria-hidden="true">
-    ${dobra("trocaSenha", "Trocar minha senha", `<input id="minhaNova" type="password" autocomplete="new-password" placeholder="nova senha" aria-label="Nova senha"><input id="minhaNova2" type="password" autocomplete="new-password" placeholder="repita" aria-label="Repita a senha"><button class="btn" type="submit">Trocar senha</button>`)}
-    ${bio ? `<button class="btn ghost" type="button" data-act="bioDesligar">Desligar digital/rosto neste aparelho</button>` : `<button class="btn ghost" type="button" data-act="bioLigar">Entrar com digital ou rosto neste aparelho</button>`}
+    ${dobra("trocaSenha", "Trocar minha senha", `${campoSenha("minhaNova", `autocomplete="new-password"`, "nova senha", "Nova senha")}${campoSenha("minhaNova2", `autocomplete="new-password"`, "repita", "Repita a senha")}<button class="btn" type="submit">Trocar senha</button>`)}
+    ${bio ? `<button class="btn ghost" type="button" data-act="bioDesligar">Desligar digital/rosto neste celular</button>` : ""}
+    <button class="btn ghost" type="button" data-act="esquecerAparelho">Sair deste celular</button>
   </form></section>`;
 }
 
@@ -1069,7 +1085,9 @@ document.addEventListener("click", async ev => {
   if (d.act==="voltarPessoas"){ S.lockPessoa = ""; S.loginMsg = ""; S.bioTentado = false; return render(); }
   if (d.act==="bioEntrar") return entrarBio();
   if (d.act==="bioLigar"){ if (!(await bioDisponivel())) return toast("Este aparelho não tem digital ou rosto liberados para o navegador."); return ativarBio(); }
-  if (d.act==="bioDesligar"){ ls.set("bio:" + S.me, ""); toast("Digital/rosto desligados neste aparelho."); return render(); }
+  if (d.act==="bioDesligar"){ ls.set("bio:" + S.me, ""); if (ls.get("abrir:" + S.me, "") === "bio") ls.set("abrir:" + S.me, "direto"); toast("Digital/rosto desligados neste celular."); return render(); }
+  if (d.act==="olhoSenha"){ const caixa = t.closest("form") || t.parentElement; const ver = t.getAttribute("aria-pressed") !== "true"; caixa.querySelectorAll("input[data-senha]").forEach(x => x.type = ver ? "text" : "password"); caixa.querySelectorAll("[data-act=olhoSenha]").forEach(b => { b.setAttribute("aria-pressed", ver); b.setAttribute("aria-label", ver ? "Esconder a senha" : "Mostrar a senha"); b.innerHTML = ver ? I.olhoFechado : I.olho; }); return; }
+  if (d.act==="esquecerAparelho") return confirmarTela("Sair deste celular? Na próxima vez vai pedir a senha.", "Sair", () => { ls.set("lembrar:" + S.me, false); ls.set("abrir:" + S.me, "direto"); S.desbloqueado = false; S.lockPessoa = S.me; render(); });
   if (d.person){ S.lockPessoa = d.person; S.loginMsg = ""; S.bioTentado = false; return render(); }
   if (d.emoji) return setAvatar({tipo:"emoji", valor:d.emoji});
   if (d.act==="avatarLetter") return setAvatar({tipo:"letra"});
@@ -1169,6 +1187,9 @@ document.addEventListener("change", ev => {
   const t = ev.target;
   if (t.dataset.pago != null){ marcarPago(t.dataset.pago, t.checked); return; }
   if (t.id === "s-print" && t.files?.[0]){ lerSaldoPrint(t.files[0]); return; }
+  if (t.dataset.abrir){ const m = t.dataset.abrir;
+    if (m === "bio" && !bioId(S.me)){ bioDisponivel().then(ok => ok ? ativarBio() : (toast("Este celular não liberou a digital ou o rosto para o navegador."), render())); return; }
+    ls.set("abrir:" + S.me, m); lembrarAparelho(S.me); toast(m === "direto" ? "Pronto: abre direto." : m === "bio" ? "Pronto: vai pedir a digital ou o rosto." : "Pronto: vai pedir a senha."); return; }
   if (t.dataset.tipocat != null){ saveConfig({tipoCat:{...(cfg().tipoCat||{}), [t.dataset.tipocat]: t.value}}); return; }
   if (t.dataset.mg != null){ const v = {...(cfg().consignado||{}), [t.dataset.mg]: num(t.value)}; saveConfig({consignado: v}); return; }
   if (t.dataset.perfilq != null){ S.perfilResp = {...(S.perfilResp||{}), [t.dataset.perfilq]: Number(t.value)}; return; }
@@ -2342,7 +2363,7 @@ function renderGate(){
   $("#view").innerHTML = `<div class="gate"><form class="gate-in" id="gatePessoaForm" autocomplete="on">${BOT}<h1>Oi, ${esc(quem)}!</h1>
     <p class="sub">Digite a sua senha.</p>
     <input type="text" name="username" autocomplete="username" value="${esc(quem)}" style="display:none" tabindex="-1" aria-hidden="true">
-    <input id="gateSenha" name="password" type="password" autocomplete="current-password" autocapitalize="none" placeholder="sua senha" aria-label="Senha de ${esc(quem)}">
+    ${campoSenha("gateSenha", `name="password" autocomplete="current-password"`, "sua senha", "Senha de " + quem)}
     <button class="btn" type="submit" style="width:100%;justify-content:center">Entrar</button>
     ${S.gateMsg ? `<p class="sub" style="color:var(--bad)">${esc(S.gateMsg)}</p>` : ""}
     <p class="sub" style="font-size:13px">Quando o navegador perguntar, toque em <b>Salvar senha</b>.</p>
@@ -2355,7 +2376,7 @@ async function entrarPessoaGate(){
   $("#view").innerHTML = `<div class="card"><p class="sub">Abrindo…</p></div>`;
   try{
     const r = await api({a:"entrarPessoa", pessoa:quem, senha});
-    if (r.ok && r.codigo){ ls.set("codigo", r.codigo); ls.set("me", quem); S.me = quem; S.desbloqueado = true; S.lockPessoa = ""; S.gateMsg = ""; guardarSenhaNoNavegador(quem, senha); loadPerson(); await carregar(); return; }
+    if (r.ok && r.codigo){ ls.set("codigo", r.codigo); ls.set("me", quem); S.me = quem; S.desbloqueado = true; S.lockPessoa = ""; S.gateMsg = ""; lembrarAparelho(quem); guardarSenhaNoNavegador(quem, senha); loadPerson(); await carregar(); return; }
     S.gateMsg = r.erro === "bloqueado" ? "Muitas tentativas. Espere 15 minutos." : r.erro === "sem_senha" ? "Essa pessoa ainda não criou senha." : "Senha errada. Tente de novo.";
   }catch{ S.gateMsg = "Não consegui falar com a planilha. Confira a internet."; }
   render();
@@ -2482,7 +2503,7 @@ window.addEventListener("online", () => { renderSeguro(); enviar(); carregar(); 
 window.addEventListener("offline", () => renderSeguro());
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden"){ S.saiuEm = Date.now(); return; }
-  if (S.desbloqueado && S.saiuEm && Date.now() - S.saiuEm > 5*60e3){ S.desbloqueado = false; S.lockPessoa = S.me; $("#modalRoot").innerHTML = ""; render(); }   // ficou mais de 5 minutos fora: pede a senha de novo
+  if (S.desbloqueado && S.saiuEm && Date.now() - S.saiuEm > 5*60e3 && !entraDireto(S.me)){ S.desbloqueado = false; S.lockPessoa = S.me; S.bioTentado = false; $("#modalRoot").innerHTML = ""; render(); }   // pediu digital ou senha ao abrir: vale também depois de 5 minutos fora
   if (codigo()) carregar();
 });
 setInterval(() => { if (document.visibilityState === "visible" && codigo() && !S.busy) carregar(); }, 90000);
@@ -2492,7 +2513,7 @@ function boot(){
   S.fila = ls.get("fila", []); S.ajTab = ls.get("ajTab", "visual");
   const d = ls.get("dados", null);
   if (d && codigo()) aplicarDados(d);
-  S.lockPessoa = S.me || ""; loadPerson(); applyTheme(); render();
+  S.lockPessoa = S.me || ""; if (codigo() && S.config && entraDireto(S.me)){ S.desbloqueado = true; S.lockPessoa = ""; } loadPerson(); applyTheme(); render();
   carregar(); setTimeout(processarFilaIA, 3000);
   /* versão nova publicada: o celular baixa sozinho e recarrega a Fina uma vez */
   if ("serviceWorker" in navigator){
